@@ -14,8 +14,6 @@ namespace kvSql.ServiceDefaults.BpTree
 
         bool ExistKey(object key);
 
-        bool ChangeVal(object key, object val);
-
         object? GetVal(object key);
     }
 
@@ -26,8 +24,6 @@ namespace kvSql.ServiceDefaults.BpTree
         bool DeteleKey(Tkey key);
 
         bool ExistKey(Tkey key);
-
-        bool ChangeVal(Tkey key, TVal val);
 
         TVal? GetVal(Tkey key);
     }
