@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35027.167
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "kvSql.AppHost", "kvSql.AppHost\kvSql.AppHost.csproj", "{1FD618EB-B1D7-4DF1-8CDB-3D81309AF3B7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "kvSql.ServiceDefaults", "kvSql.ServiceDefaults\kvSql.ServiceDefaults.csproj", "{F55E5943-4B26-41C6-9273-5E275649FB98}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1FD618EB-B1D7-4DF1-8CDB-3D81309AF3B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FD618EB-B1D7-4DF1-8CDB-3D81309AF3B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FD618EB-B1D7-4DF1-8CDB-3D81309AF3B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FD618EB-B1D7-4DF1-8CDB-3D81309AF3B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F55E5943-4B26-41C6-9273-5E275649FB98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F55E5943-4B26-41C6-9273-5E275649FB98}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F55E5943-4B26-41C6-9273-5E275649FB98}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F55E5943-4B26-41C6-9273-5E275649FB98}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3CADB706-49DE-4E4F-95AB-13D1CBBC70FB}
+	EndGlobalSection
+EndGlobal
