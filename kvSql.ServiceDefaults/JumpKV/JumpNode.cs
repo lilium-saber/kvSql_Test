@@ -75,6 +75,11 @@ namespace kvSql.ServiceDefaults.BpTree
             return ExistKey((TKey)key);
         }
 
+        public bool ChangeVal(object key, object val)
+        {
+            return ChangeVal((TKey)key, (TVal)val);
+        }
+
         public bool AddVal(TKey key, TVal val)
         {
             JumpNode<TKey, TVal>[] update = new JumpNode<TKey, TVal>[LeverMax + 1];
@@ -167,6 +172,27 @@ namespace kvSql.ServiceDefaults.BpTree
             }
             if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
             {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public bool ChangeVal(TKey key, TVal val)
+        {
+            JumpNode<TKey, TVal> p = head;
+            for (int i = LeverMax; i >= 0; i--)
+            {
+                while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                {
+                    p = p.Next[i];
+                }
+            }
+            if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
+            {
+                p.Next[0].Val.Values = val;
                 return true;
             }
             else
