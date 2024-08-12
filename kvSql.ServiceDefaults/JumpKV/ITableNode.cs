@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,8 +18,9 @@ namespace kvSql.ServiceDefaults.JumpKV
         bool ChangeVal(object key, object val);
 
         object? GetVal(object key);
-
         Task SaveJump();
+
+        Task<string> KValMathPlus(object key, object number);
     }
 
     public interface IJumpNode<Tkey, TVal> : IJumpNode where Tkey : IComparable<Tkey>
@@ -32,5 +34,7 @@ namespace kvSql.ServiceDefaults.JumpKV
         bool ChangeVal(Tkey key, TVal val);
 
         TVal? GetVal(Tkey key);
+
+        Task<string> KValMathPlus(Tkey key, TVal number);
     }
 }

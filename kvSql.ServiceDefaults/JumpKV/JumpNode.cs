@@ -98,6 +98,11 @@ namespace kvSql.ServiceDefaults.JumpKV
             return ChangeVal((TKey)key, (TVal)val);
         }
 
+        public async Task<string> KValMathPlus(object key, object number)
+        {
+            return await KValMathPlus((TKey)key, (TVal)number);
+        }
+
         public bool AddVal(TKey key, TVal val)
         {
             JumpNode<TKey, TVal>[] update = new JumpNode<TKey, TVal>[LeverMax + 1];
@@ -265,6 +270,44 @@ namespace kvSql.ServiceDefaults.JumpKV
                 Console.WriteLine($"Failed to save as json, {jumpName}\nmeg: {ex.Message}\n");
             }
         }
+
+        public async Task<string> KValMathPlus(TKey key, TVal number)
+        {
+            if (valueType == "Int32" || valueType == "Int64" || valueType == "Single" || valueType == "Double" || valueType == "Decimal" || valueType == "long" || valueType == "int")
+            {
+                JumpNode<TKey, TVal> p = head;
+                for (int i = LeverMax; i >= 0; i--)
+                {
+                    while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                    {
+                        p = p.Next[i];
+                    }
+                }
+                if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0 && p.Next[0].Val != null)
+                {
+                    try
+                    {
+                        dynamic currentValue = p.Next[0].Val.Values;
+                        dynamic addValue = number;
+                        p.Next[0].Val.Values = currentValue + addValue;
+                        return await Task.FromResult("KV Math success\n");
+                    }
+                    catch (Exception ex)
+                    {
+                        return await Task.FromResult($"KV Math error: {ex.Message}\n");
+                    }
+                }
+                else
+                {
+                    return await Task.FromResult("Key not found\n");
+                }
+            }
+            else
+            {
+                return await Task.FromResult("KV Math error: Unsupported value type\n");
+            }
+        }
+
 
     }
     /*
