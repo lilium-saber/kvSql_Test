@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace kvSql.ServiceDefaults.BpTree
+namespace kvSql.ServiceDefaults.JumpKV
 {
     internal class ValNode<TKey, TVal> where TKey : IComparable<TKey>
     {
@@ -36,13 +36,31 @@ namespace kvSql.ServiceDefaults.BpTree
     public class JumpList<TKey, TVal> : IJumpNode<TKey, TVal> where TKey : IComparable<TKey>
     {
         private readonly int LeverMax = 5;
-        private readonly JumpNode<TKey, TVal> head; //一定是指向层数满的节点
+        private readonly JumpNode<TKey, TVal> head; //一定是层数满的节点，本身无数据
         private readonly Random random;
+
+        public readonly string keyType;
+        public readonly string valueType;
+        public readonly string? jumpName;
 
         public JumpList()
         {
             head = new JumpNode<TKey, TVal>(LeverMax, default(TKey), default(TVal));
             random = new Random();
+
+            keyType = typeof(TKey).Name;
+            valueType = typeof(TVal).Name;
+            jumpName = null;
+        }
+
+        public JumpList(string s)
+        {
+            head = new JumpNode<TKey, TVal>(LeverMax, default(TKey), default(TVal));
+            random = new Random();
+
+            keyType = typeof(TKey).Name;
+            valueType = typeof(TVal).Name;
+            jumpName = s;
         }
 
         private int RandomLever()
@@ -201,8 +219,55 @@ namespace kvSql.ServiceDefaults.BpTree
             }
         }
 
+        public async Task SaveJump()
+        {
+            string json;
+            string relativePath = Path.Combine("kvSql.ServiceDefaults", "DataFile", $"{jumpName}.json");
+            string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
+            string filePath = Path.Combine(solutionPath, relativePath);
+            if(!Directory.Exists(Path.GetDirectoryName(filePath)))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+            }
+            var jsonListData = new JsonListData<TKey, TVal>
+            {
+                keyType = keyType,
+                valueType = valueType,
+                jumpName = jumpName,
+                jsonNodeDatas = new List<JsonNodeData<TKey, TVal>>()
+            };
+            JumpNode<TKey, TVal> jumpNode = head;
+            while (jumpNode.Next[0] != null)
+            {
+                jumpNode = jumpNode.Next[0];
+                var jsonNodeData = new JsonNodeData<TKey, TVal>
+                {
+                    lever = jumpNode.Lever,
+                    key = jumpNode.Val.Keys,
+                    val = jumpNode.Val.Values,
+                    NextKeys = new List<TKey>()
+                };
+                for (int i = 0; i <= jumpNode.Lever; i++)
+                {
+                    jsonNodeData.NextKeys.Add(jumpNode.Next[i].Val.Keys);
+                }
+                jsonListData.jsonNodeDatas.Add(jsonNodeData);
+            }
+            json = System.Text.Json.JsonSerializer.Serialize(jsonListData);
+
+            try
+            {
+                await File.WriteAllTextAsync(filePath, json);
+                Console.WriteLine($"save as json, name is {jumpName}\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to save as json, {jumpName}\nmeg: {ex.Message}\n");
+            }
+        }
+
     }
     /*
-     * 如果使用cpp学习，简单编写scoket通信编程，并让C#调用在服务端、客户端以调用的形式使用这个scoket通信服务 
+     * 如果使用cpp学习，简单编写rpc通信编程，并让C#调用在服务端、客户端以调用的形式使用这个scoket通信服务 
      */
 }

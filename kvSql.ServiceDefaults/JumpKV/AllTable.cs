@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace kvSql.ServiceDefaults.BpTree
+namespace kvSql.ServiceDefaults.JumpKV
 {
     public class AllTable
     {
@@ -24,7 +24,7 @@ namespace kvSql.ServiceDefaults.BpTree
             }
             else
             {
-                tableNodes.Add(s, new JumpList<Tkey, Tvalue>());
+                tableNodes.Add(s, new JumpList<Tkey, Tvalue>(s));
                 if(tableNodes.ContainsKey(s))
                 {
                     return Task.FromResult(true);
