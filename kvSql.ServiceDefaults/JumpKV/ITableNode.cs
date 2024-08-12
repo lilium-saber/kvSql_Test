@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace kvSql.ServiceDefaults.BpTree
+namespace kvSql.ServiceDefaults.JumpKV
 {
     public interface IJumpNode
     {
@@ -17,6 +17,8 @@ namespace kvSql.ServiceDefaults.BpTree
         bool ChangeVal(object key, object val);
 
         object? GetVal(object key);
+
+        Task SaveJump();
     }
 
     public interface IJumpNode<Tkey, TVal> : IJumpNode where Tkey : IComparable<Tkey>
