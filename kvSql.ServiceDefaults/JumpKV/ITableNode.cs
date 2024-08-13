@@ -18,6 +18,7 @@ namespace kvSql.ServiceDefaults.JumpKV
         bool ChangeVal(object key, object val);
 
         object? GetVal(object key);
+
         Task SaveJump();
 
         Task<string> KValMathPlus(object key, object number);

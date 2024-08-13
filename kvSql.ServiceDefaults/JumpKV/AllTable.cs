@@ -17,6 +17,8 @@ namespace kvSql.ServiceDefaults.JumpKV
 
         public Task<bool> ChangeVal(string s, string key, string newVal);
 
+        public Task SaveDataBase(string s);
+
         public Task<bool> CreateKVInt64(string s, string key, long val);
 
         public Task<bool> AddTableNodeInt64(string s);
@@ -25,11 +27,11 @@ namespace kvSql.ServiceDefaults.JumpKV
 
         public Task<bool> ChangeValInt64(string s, string key, long newVal);
 
-        public Task SaveDataBase(string s);
+        public Task SaveDataBaseInt64(string s);
 
         public Task<bool> AddTableNode<Tkey, Tvalue>(string s) where Tkey : IComparable<Tkey>;
 
-        public Task<bool> deleteTableNode(string s);
+        public Task<bool> DeleteTableNode(string s);
 
         public Task<Tvalue> GetKVal<Tkey, Tvalue>(string s, Tkey key) where Tkey : IComparable<Tkey>;
 
@@ -47,32 +49,44 @@ namespace kvSql.ServiceDefaults.JumpKV
             tableNodes = new Dictionary<string, IJumpNode>();
         }
 
-        public Task<bool> AddTableNode<Tkey, Tvalue>(string s) where Tkey : IComparable<Tkey>
+        public async Task<bool> AddTableNode<Tkey, Tvalue>(string s) where Tkey : IComparable<Tkey>
         {
             if (tableNodes.ContainsKey(s))
             {
                 Console.WriteLine("this string has alive\n");
-                return Task.FromResult(false);
+                return false;
             }
             else
             {
                 tableNodes.Add(s, new JumpList<Tkey, Tvalue>(s));
                 if(tableNodes.ContainsKey(s))
                 {
-                    return Task.FromResult(true);
+                    await tableNodes[s].SaveJump();
+                    return true;
                 }
                 else
                 {
                    Console.WriteLine("add error\n");
-                   return Task.FromResult(false);
+                   return false;
                 }
             }
         }
 
-        public Task<bool> deleteTableNode(string s)
+        public Task<bool> DeleteTableNode(string s)
         {
             if (tableNodes.ContainsKey(s))
             {
+                string relativePath = Path.Combine("kvSql.ServiceDefaults", "DataFile", $"{s}.json");
+                string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
+                string filePath = Path.Combine(solutionPath, relativePath);
+                if(File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+                else
+                {
+                    Console.WriteLine($"File {s}.json is not found\n");
+                }
                 tableNodes.Remove(s);
                 if (!tableNodes.ContainsKey(s))
                 {
@@ -122,6 +136,18 @@ namespace kvSql.ServiceDefaults.JumpKV
             if (tableNodes.ContainsKey(s))
             {
                 await ((JumpList<string, string>)tableNodes[s]).SaveJump();
+            }
+            else
+            {
+                Console.WriteLine("TableNode is not found\nsave fail\n");
+            }
+        }
+
+        public async Task SaveDataBaseInt64(string s)
+        {
+            if (tableNodes.ContainsKey(s))
+            {
+                await ((JumpList<string, long>)tableNodes[s]).SaveJump();
             }
             else
             {
