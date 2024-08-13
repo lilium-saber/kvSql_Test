@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace kvSql.ServiceDefaults.JumpKV
@@ -35,7 +39,7 @@ namespace kvSql.ServiceDefaults.JumpKV
 
     public class JumpList<TKey, TVal> : IJumpNode<TKey, TVal> where TKey : IComparable<TKey>
     {
-        private readonly int LeverMax = 5;
+        private readonly int LeverMax = 15;
         private readonly JumpNode<TKey, TVal> head; //一定是层数满的节点，本身无数据
         private readonly Random random;
 
@@ -66,7 +70,7 @@ namespace kvSql.ServiceDefaults.JumpKV
         private int RandomLever()
         {
             int lever = 0;
-            while (random.Next(0, 2) == 1 && lever < LeverMax)
+            while (random.Next(0, 2) >= 1 && lever < LeverMax)
             {
                 lever++;
             }
@@ -175,6 +179,8 @@ namespace kvSql.ServiceDefaults.JumpKV
                 {
                     update[i].Next[i] = deleteNode.Next[i];
                 }
+                deleteNode.Val = null;
+                deleteNode = null;
                 return true;
             }
             else
@@ -227,8 +233,12 @@ namespace kvSql.ServiceDefaults.JumpKV
         public async Task SaveJump()
         {
             string json;
-            string relativePath = Path.Combine("kvSql.ServiceDefaults", "DataFile", $"{jumpName}.json");
+            string relativePath = Path.Combine("DataFile", $"{jumpName}.json");
             string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
+            if (solutionPath == null)
+            {
+                throw new InvalidOperationException("Solution path could not be determined.");
+            }
             string filePath = Path.Combine(solutionPath, relativePath);
             if(!Directory.Exists(Path.GetDirectoryName(filePath)))
             {
@@ -254,11 +264,19 @@ namespace kvSql.ServiceDefaults.JumpKV
                 };
                 for (int i = 0; i <= jumpNode.Lever; i++)
                 {
-                    jsonNodeData.NextKeys.Add(jumpNode.Next[i].Val.Keys);
+                    if (jumpNode.Next[i] != null && jumpNode.Next[i].Val != null)
+                    {
+                        jsonNodeData.NextKeys.Add(jumpNode.Next[i].Val.Keys);
+                    }
                 }
                 jsonListData.jsonNodeDatas.Add(jsonNodeData);
             }
-            json = System.Text.Json.JsonSerializer.Serialize(jsonListData);
+
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = (valueType == "Int64") ? JsonListDataContextInt64.Default : JsonListDataContext.Default
+            };
+            json = JsonSerializer.Serialize(jsonListData, options);
 
             try
             {

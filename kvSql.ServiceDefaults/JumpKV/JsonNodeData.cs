@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace kvSql.ServiceDefaults.JumpKV
@@ -19,7 +20,18 @@ namespace kvSql.ServiceDefaults.JumpKV
         public string keyType { get; set; }
         public string valueType { get; set; }
         public string? jumpName { get; set; }
-        private readonly int leverMax = 5;
         public List<JsonNodeData<TKey, TVal>> jsonNodeDatas { get; set; }
+    }
+
+    [JsonSerializable(typeof(JsonNodeData<string, string>))]
+    [JsonSerializable(typeof(JsonListData<string, string>))]
+    public partial class JsonListDataContext : JsonSerializerContext
+    {
+    }
+
+    [JsonSerializable(typeof(JsonNodeData<string, long>))]
+    [JsonSerializable(typeof(JsonListData<string, long>))]
+    public partial class JsonListDataContextInt64 : JsonSerializerContext
+    {
     }
 }
