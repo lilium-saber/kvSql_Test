@@ -102,9 +102,9 @@ namespace kvSql.ServiceDefaults.JumpKV
             return ChangeVal((TKey)key, (TVal)val);
         }
 
-        public async Task<string> KValMathPlus(object key, object number)
+        public async Task<string> KValMathPlusAsync(object key, object number)
         {
-            return await KValMathPlus((TKey)key, (TVal)number);
+            return await KValMathPlusAsync((TKey)key, (TVal)number);
         }
 
         public bool AddVal(TKey key, TVal val)
@@ -230,7 +230,7 @@ namespace kvSql.ServiceDefaults.JumpKV
             }
         }
 
-        public async Task SaveJump()
+        public async Task SaveJumpAsync()
         {
             string json;
             string relativePath = Path.Combine("DataFile", $"{jumpName}.json");
@@ -289,7 +289,7 @@ namespace kvSql.ServiceDefaults.JumpKV
             }
         }
 
-        public async Task<string> KValMathPlus(TKey key, TVal number)
+        public async Task<string> KValMathPlusAsync(TKey key, TVal number)
         {
             if (valueType == "Int32" || valueType == "Int64" || valueType == "Single" || valueType == "Double" || valueType == "Decimal" || valueType == "long" || valueType == "int")
             {
