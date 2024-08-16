@@ -9,35 +9,35 @@ namespace kvSql.ServiceDefaults.JumpKV
 {
     public interface IKVDataBase
     {
-        public Task<bool> CreateKV(string s, string key, string val);
+        public Task<bool> CreateKVAsync(string s, string key, string val);
 
-        public Task<bool> AddTableNode(string s);
+        public Task<bool> AddTableNodeAsync(string s);
 
-        public Task<string> GetKVal(string s, string key);
+        public Task<string> GetKValAsync(string s, string key);
 
-        public Task<bool> ChangeVal(string s, string key, string newVal);
+        public Task<bool> ChangeValAsync(string s, string key, string newVal);
 
-        public Task SaveDataBase(string s);
+        public Task SaveDataBaseAsync(string s);
 
-        public Task<bool> CreateKVInt64(string s, string key, long val);
+        public Task<bool> CreateKVInt64Async(string s, string key, long val);
 
-        public Task<bool> AddTableNodeInt64(string s);
+        public Task<bool> AddTableNodeInt64Async(string s);
 
-        public Task<long> GetKValInt64(string s, string key);
+        public Task<long> GetKValInt64Async(string s, string key);
 
-        public Task<bool> ChangeValInt64(string s, string key, long newVal);
+        public Task<bool> ChangeValInt64Async(string s, string key, long newVal);
 
-        public Task SaveDataBaseInt64(string s);
+        public Task SaveDataBaseInt64Async(string s);
 
         public Task<bool> AddTableNode<Tkey, Tvalue>(string s) where Tkey : IComparable<Tkey>;
 
         public Task<bool> DeleteTableNode(string s);
 
-        public Task<Tvalue> GetKVal<Tkey, Tvalue>(string s, Tkey key) where Tkey : IComparable<Tkey>;
+        public Task<Tvalue> GetKValAsync<Tkey, Tvalue>(string s, Tkey key) where Tkey : IComparable<Tkey>;
 
-        public Task<bool> CreateKV<Tkey, Tval>(string s, Tkey key, Tval val) where Tkey : IComparable<Tkey>;
+        public Task<bool> CreateKVAsync<Tkey, Tval>(string s, Tkey key, Tval val) where Tkey : IComparable<Tkey>;
 
-        public Task<bool> ChangeVal<Tkey, Tval>(string s, Tkey key, Tval newVal) where Tkey : IComparable<Tkey>;
+        public Task<bool> ChangeValAsync<Tkey, Tval>(string s, Tkey key, Tval newVal) where Tkey : IComparable<Tkey>;
     }
 
     public class AllTable : IKVDataBase
@@ -61,7 +61,7 @@ namespace kvSql.ServiceDefaults.JumpKV
                 tableNodes.Add(s, new JumpList<Tkey, Tvalue>(s));
                 if(tableNodes.ContainsKey(s))
                 {
-                    await tableNodes[s].SaveJump();
+                    await tableNodes[s].SaveJumpAsync();
                     return true;
                 }
                 else
@@ -118,7 +118,7 @@ namespace kvSql.ServiceDefaults.JumpKV
             }
         }
 
-        public async Task<Tvalue> GetKVal<Tkey, Tvalue>(string s, Tkey key) where Tkey : IComparable<Tkey>
+        public async Task<Tvalue> GetKValAsync<Tkey, Tvalue>(string s, Tkey key) where Tkey : IComparable<Tkey>
         {
             if (tableNodes.ContainsKey(s))
             {
@@ -131,11 +131,11 @@ namespace kvSql.ServiceDefaults.JumpKV
             }
         }
 
-        public async Task SaveDataBase(string s)
+        public async Task SaveDataBaseAsync(string s)
         {
             if (tableNodes.ContainsKey(s))
             {
-                await ((JumpList<string, string>)tableNodes[s]).SaveJump();
+                await ((JumpList<string, string>)tableNodes[s]).SaveJumpAsync();
             }
             else
             {
@@ -143,11 +143,11 @@ namespace kvSql.ServiceDefaults.JumpKV
             }
         }
 
-        public async Task SaveDataBaseInt64(string s)
+        public async Task SaveDataBaseInt64Async(string s)
         {
             if (tableNodes.ContainsKey(s))
             {
-                await ((JumpList<string, long>)tableNodes[s]).SaveJump();
+                await ((JumpList<string, long>)tableNodes[s]).SaveJumpAsync();
             }
             else
             {
@@ -155,7 +155,7 @@ namespace kvSql.ServiceDefaults.JumpKV
             }
         }
 
-        public async Task<bool> CreateKV<Tkey, Tval>(string s, Tkey key, Tval val) where Tkey : IComparable<Tkey>
+        public async Task<bool> CreateKVAsync<Tkey, Tval>(string s, Tkey key, Tval val) where Tkey : IComparable<Tkey>
         {
             if (tableNodes.ContainsKey(s))
             {
@@ -168,7 +168,7 @@ namespace kvSql.ServiceDefaults.JumpKV
             }
         }
 
-        public async Task<bool> ChangeVal<Tkey, Tval>(string s, Tkey key, Tval newVal) where Tkey : IComparable<Tkey>
+        public async Task<bool> ChangeValAsync<Tkey, Tval>(string s, Tkey key, Tval newVal) where Tkey : IComparable<Tkey>
         {
             if (tableNodes.ContainsKey(s))
             {
@@ -181,44 +181,44 @@ namespace kvSql.ServiceDefaults.JumpKV
             }
         }
 
-        public async Task<bool> CreateKV(string s, string key, string val)
+        public async Task<bool> CreateKVAsync(string s, string key, string val)
         {
-            return await CreateKV<string, string>(s, key, val);
+            return await CreateKVAsync<string, string>(s, key, val);
         }
 
-        public async Task<bool> CreateKVInt64(string s, string key, long val)
+        public async Task<bool> CreateKVInt64Async(string s, string key, long val)
         {
-            return await CreateKV<string, long>(s, key, val);
+            return await CreateKVAsync<string, long>(s, key, val);
         }
 
-        public async Task<bool> AddTableNode(string s)
+        public async Task<bool> AddTableNodeAsync(string s)
         {
             return await AddTableNode<string, string>(s);
         }
 
-        public async Task<bool> AddTableNodeInt64(string s)
+        public async Task<bool> AddTableNodeInt64Async(string s)
         {
             return await AddTableNode<string, long>(s);
         }
 
-        public async Task<string> GetKVal(string s, string key)
+        public async Task<string> GetKValAsync(string s, string key)
         {
-            return await GetKVal<string, string>(s, key);
+            return await GetKValAsync<string, string>(s, key);
         }
 
-        public async Task<long> GetKValInt64(string s, string key)
+        public async Task<long> GetKValInt64Async(string s, string key)
         {
-            return await GetKVal<string, long>(s, key);
+            return await GetKValAsync<string, long>(s, key);
         }
 
-        public async Task<bool> ChangeVal(string s, string key, string newVal)
+        public async Task<bool> ChangeValAsync(string s, string key, string newVal)
         {
-            return await ChangeVal<string, string>(s, key, newVal);
+            return await ChangeValAsync<string, string>(s, key, newVal);
         }
 
-        public async Task<bool> ChangeValInt64(string s, string key, long newVal)
+        public async Task<bool> ChangeValInt64Async(string s, string key, long newVal)
         {
-            return await ChangeVal<string, long>(s, key, newVal);
+            return await ChangeValAsync<string, long>(s, key, newVal);
         }
     }
 }

@@ -19,9 +19,9 @@ namespace kvSql.ServiceDefaults.JumpKV
 
         object? GetVal(object key);
 
-        Task SaveJump();
+        Task SaveJumpAsync();
 
-        Task<string> KValMathPlus(object key, object number);
+        Task<string> KValMathPlusAsync(object key, object number);
     }
 
     public interface IJumpNode<Tkey, TVal> : IJumpNode where Tkey : IComparable<Tkey>
@@ -36,6 +36,6 @@ namespace kvSql.ServiceDefaults.JumpKV
 
         TVal? GetVal(Tkey key);
 
-        Task<string> KValMathPlus(Tkey key, TVal number);
+        Task<string> KValMathPlusAsync(Tkey key, TVal number);
     }
 }
