@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 
 namespace kvSql.ServiceDefaults.Rpc
 {
-    public class RpcClient
+    public class RpcClient : IRpcClient
     {
         private readonly string _ipAddress;
         private readonly int _port;

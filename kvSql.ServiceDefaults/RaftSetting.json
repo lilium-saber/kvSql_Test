@@ -1,10 +1,17 @@
 {
-  "Server": {
+  "LocalServer": {
     "IpAddress": "127.0.0.1",
     "Port": 12636
   },
-  "node1": {
-    "IpAddress": "127.0.0.1",
-    "Port": 12636
-  }
+  "ConnectNodes": [
+    {
+      "Node": {
+        "id": 0,
+        "IpAddress": "127.0.0.1",
+        "Port": 12636
+      }
+    }
+  ],
+  "meNodeId": 0
+
 }
