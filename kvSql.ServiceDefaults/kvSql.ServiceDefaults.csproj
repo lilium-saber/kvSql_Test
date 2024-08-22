@@ -22,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="DataFile\snapshot\" />
     <Folder Include="Logger\IO\" />
     <Folder Include="DataFile\" />
   </ItemGroup>

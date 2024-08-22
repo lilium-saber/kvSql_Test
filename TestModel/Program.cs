@@ -5,35 +5,60 @@ using kvSql.ServiceDefaults.JumpKV;
 using kvSql.ServiceDefaults.Rpc;
 using System.Diagnostics;
 
+Mutex mutex = new(true);
+int turn = 0; // 用于跟踪当前应该由哪个线程打印
 
+void P0(int start, int need, int all)
+{
+    for (int i = start; i < 10 + start; i++)
+    {
+        lock (mutex)
+        {
+            while (turn % all != need)
+            {
+                Monitor.Wait(mutex);
+            }
+            Console.WriteLine($"P0: {i}");
+            turn++;
+            Monitor.PulseAll(mutex); // 唤醒所有等待的线程
+        }
+    }
+}
 
+Thread t1 = new(() => P0(0, 0, 2));
+Thread t2 = new(() => P0(50, 1, 2));
+t1.Start();
+t2.Start();
+
+t1.Join();
+t2.Join();
+
+/*
 async Task StartServer()
 {
     string relativePath = Path.Combine($"RaftSetting.json");
     string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
     string filePath = Path.Combine(solutionPath, relativePath);
     var config = ConfigLoader.LoadConfig(filePath);
-    var server = new RpcServer(config.Server.IpAddress, config.Server.Port);
-    server.RegisterMethod("Add", parameters =>
-    {
-        int a = Convert.ToInt32(parameters[0]);
-        int b = Convert.ToInt32(parameters[1]);
-        return a + b;
-    });
+    var server = new RpcServer(config.LocalServer.IpAddress, config.LocalServer.Port);
 
     await server.StartAsync();
 }
 
 async Task StartClient()
 {
-    Console.WriteLine("Start test");
     string relativePath = Path.Combine($"RaftSetting.json");
     string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
     string filePath = Path.Combine(solutionPath, relativePath);
     var config = ConfigLoader.LoadConfig(filePath);
-    var client = new RpcClient(config.node1.IpAddress, config.node1.Port);
-    var result = await client.CallAsync("Add", 5, 3);
-    Console.WriteLine($"Result: {result}");
+    //var client = new RpcClient(config.LocalClient.IpAddress, config.LocalClient.Port);
+    var connectNodes = config.ConnectNodes;
+    foreach(var connectNode in connectNodes)
+    {
+        var client = new RpcClient(connectNode.Node.IpAddress, connectNode.Node.Port);
+        var result = await client.CallAsync("Add", 5, 3);
+        Console.WriteLine($"Result: {result}");
+    }
 }
 
 async Task MainAsync()
@@ -50,6 +75,7 @@ async Task MainAsync()
 }
 
 await MainAsync();
+*/
 
 /*
 IKVDataBase kvDataBase = new AllTable();

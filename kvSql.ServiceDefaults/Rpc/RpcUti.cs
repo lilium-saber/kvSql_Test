@@ -43,4 +43,19 @@ namespace kvSql.ServiceDefaults.Rpc
     public partial class RpcResponseContext : JsonSerializerContext
     {
     }
+
+    public class Defer : IDisposable
+    {
+        private readonly Action _action;
+
+        public Defer(Action action)
+        {
+            _action = action;
+        }
+
+        public void Dispose()
+        {
+            _action();
+        }
+    }
 }
