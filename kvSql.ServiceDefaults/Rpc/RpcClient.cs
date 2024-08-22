@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using kvSql.ServiceDefaults.Raft;
 
 namespace kvSql.ServiceDefaults.Rpc
 {
@@ -47,6 +48,25 @@ namespace kvSql.ServiceDefaults.Rpc
                     return rpcResponse.Result;
                 }
             }
+        }
+
+        public (bool, string?) RequestVote(string msg)
+        {
+            if(msg == null)
+            {
+                return (false, null);
+            }
+            //如果通信失败，返回false
+            string? reply;
+            try
+            {
+                reply = CallAsync("RequestVote", msg).Result.ToString();
+            }
+            catch (Exception)
+            {
+                return (false, null);
+            }
+            return (true, reply);
         }
     }
 }

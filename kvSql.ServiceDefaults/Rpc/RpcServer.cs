@@ -6,7 +6,10 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using kvSql.ServiceDefaults.JumpKV;
+using kvSql.ServiceDefaults.Raft;
 using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace kvSql.ServiceDefaults.Rpc
 {
@@ -15,12 +18,14 @@ namespace kvSql.ServiceDefaults.Rpc
         private readonly TcpListener _listener;
         private readonly Dictionary<string, Func<object[], Task<object>>> _methods;
         private readonly IKVDataBase _kvDataBase;
+        private readonly RaftCS _raft;
 
         public RpcServer(string ipAddress, int port)
         {
             _listener = new TcpListener(System.Net.IPAddress.Parse(ipAddress), port);
-            _methods = new Dictionary<string, Func<object[], Task<object>>>();
+            _methods = [];
             _kvDataBase = new AllTable();
+            _raft = new RaftCS();
             RpcServerInit();
         }
 
@@ -34,7 +39,7 @@ namespace kvSql.ServiceDefaults.Rpc
             _listener.Start();
 
             Console.WriteLine("Rpc server started.");
-            while(true)
+            while (true)
             {
                 var client = await _listener.AcceptTcpClientAsync();
                 _ = Task.Run(() => HandleClientAsync(client));
@@ -74,8 +79,76 @@ namespace kvSql.ServiceDefaults.Rpc
             }
         }
 
+        private string RequestVote(string msg)
+        {
+            RaftSendSelectMsg? getMsg = JsonConvert.DeserializeObject<RaftSendSelectMsg>(msg);
+            if (getMsg == null)
+            {
+                return "null";
+            }
+            RaftResponseSelectMsg response = new();
+            lock (_raft.meMute)
+            {
+                if (getMsg.Term < _raft.term)
+                {
+                    response.Term = _raft.term;
+                    response.VoteState = RaftVoteState.Expire;
+                    response.GetVote = false;
+                    goto End;
+                }
+
+                if (getMsg.Term > _raft.term)
+                {
+                    _raft.votedFor = -1;
+                    _raft.term = getMsg.Term;
+                    _raft.meState = RaftState.Follower;
+                }
+
+                int lastLogIndex = _raft.GetLastLogIndex();
+                if (getMsg.LastLogTerm < _raft.GetLastLogTerm() || (getMsg.LastLogTerm == _raft.GetLastLogTerm() && lastLogIndex > getMsg.LastLogIndex))
+                {
+                    response.Term = _raft.term;
+                    response.VoteState = RaftVoteState.Voted;
+                    response.GetVote = false;
+                    goto End;
+                }
+
+                if (_raft.votedFor != -1)
+                {
+                    response.Term = _raft.term;
+                    response.VoteState = RaftVoteState.Voted;
+                    response.GetVote = false;
+                    goto End;
+                }
+                else
+                {
+                    _raft.votedFor = getMsg.CandidateID;
+                    _raft.lastResetSelectTime = DateTime.Now;
+                    response.Term = _raft.term;
+                    response.VoteState = RaftVoteState.Normal;
+                    response.GetVote = true;
+                    goto End;
+                }
+            }
+        End:
+            //_raft.Persist();
+            string? json;
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = RaftRpcSelectResponseJsonContent.Default
+            };
+            json = System.Text.Json.JsonSerializer.Serialize(response, options);
+            return json;
+        }
+
         private void RpcServerInit()
         {
+            RegisterMethod("RequestVote", async (parameters) =>
+            {
+                string msg = (string)parameters[0];
+                return RequestVote(msg);
+            });
+
             RegisterMethod("Add", async (parameters) =>
             {
                 int a = (int)parameters[0];

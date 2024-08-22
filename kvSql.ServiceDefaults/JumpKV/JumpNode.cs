@@ -249,7 +249,7 @@ namespace kvSql.ServiceDefaults.JumpKV
                 keyType = keyType,
                 valueType = valueType,
                 jumpName = jumpName,
-                jsonNodeDatas = new List<JsonNodeData<TKey, TVal>>()
+                jsonNodeDatas = []
             };
             JumpNode<TKey, TVal> jumpNode = head;
             while (jumpNode.Next[0] != null)
@@ -260,7 +260,7 @@ namespace kvSql.ServiceDefaults.JumpKV
                     lever = jumpNode.Lever,
                     key = jumpNode.Val.Keys,
                     val = jumpNode.Val.Values,
-                    NextKeys = new List<TKey>()
+                    NextKeys = []
                 };
                 for (int i = 0; i <= jumpNode.Lever; i++)
                 {
