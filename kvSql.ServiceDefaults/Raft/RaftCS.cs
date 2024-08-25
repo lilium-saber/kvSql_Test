@@ -8,22 +8,22 @@ using System.Threading;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using kvSql.ServiceDefaults.Rpc;
+using kvSql.ServiceDefaults.JumpKV;
 
 namespace kvSql.ServiceDefaults.Raft
 {
     public class RaftCS
     {
-        private List<RaftLog> raftLogs { get; set; }   //日志，添加快照会清空
-
+        public List<RaftLog> raftLogs { get; set; }   //日志，添加快照会清空
         public RaftState meState { get; set;}  //节点状态
         public readonly object meMute = new();   //互斥锁
         public readonly int meID;  //节点ID
-        public readonly int selectTimeOut = 200;  //选举超时时间ms
-        public readonly int heartBeatTimeOut = 200;   //心跳超时时间ms
+        public readonly int selectTimeOut = 2000;  //选举超时时间ms
+        public readonly int heartBeatTimeOut = 2000;   //心跳超时时间ms
 
         //leader
-        private List<int> nextIndex { get; set; }  //下一个要发送的日志的索引，每个服务器单独设置
-        private List<int> matchIndex { get; set; }  //已知的已经复制到的最高日志索引
+        private Dictionary<int, int> nextIndex { get; set; }  //下一个要发送的日志的索引，每个服务器单独设置，默认为已知的最高日志索引+1
+        private Dictionary<int, int> matchIndex { get; set; }  //已知的已经复制到的最高日志索引
 
         //all node
         private int commitIndex { get; set; }  //已知的已经提交的最高日志索引
@@ -44,7 +44,8 @@ namespace kvSql.ServiceDefaults.Raft
         private int lastIncludedTerm { get; set; }  //快照中包含的最后一个日志条目的任期
         
         //kvSql
-
+        private readonly IKVDataBase kvSql;
+        private readonly Dictionary<string, Func<object[], Task<object>>> methods;
 
         public RaftCS()
         {
@@ -77,12 +78,15 @@ namespace kvSql.ServiceDefaults.Raft
                 var config = ConfigLoader.LoadConfig(filePath);
                 var connectNodes = config.ConnectNodes;
                 allNodes = [];
+                nextIndex = [];
+                matchIndex = [];
                 foreach(var connectNode in connectNodes)
                 {
                     var client = new RpcClient(connectNode.Node.IpAddress, connectNode.Node.Port);
                     allNodes.Add(connectNode.Node.id, client);
+                    nextIndex.Add(connectNode.Node.id, 0);
+                    matchIndex.Add(connectNode.Node.id, 0);
                 }
-
                 meID = config.meNodeId;
                 term = 0;
                 commitIndex = 0;
@@ -90,14 +94,15 @@ namespace kvSql.ServiceDefaults.Raft
                 meState = RaftState.Follower;
                 raftLogs = [];
                 votedFor = -1;
-                nextIndex = [];
-                matchIndex = [];
                 lastIncludedIndex = 0;
                 lastIncludedTerm = 0;
                 leaderID = -1;
                 lastResetHeartBeatTime = DateTime.Now;
                 lastResetSelectTime = DateTime.Now;
                 //
+                methods = [];
+                kvSql = new AllTable();
+                MethonInit();
             }
             
             Thread t1 = new(() => LeaderTimeOutTicker(this))
@@ -179,7 +184,7 @@ namespace kvSql.ServiceDefaults.Raft
                 var suitableSleepTime = 0;
                 lock(meMute)
                 {
-                    suitableSleepTime = new Random().Next(100, heartBeatTimeOut) + raft.lastResetHeartBeatTime.Millisecond - TimeNow.Millisecond;
+                    suitableSleepTime = new Random().Next(100, heartBeatTimeOut) + (int)(raft.lastResetHeartBeatTime - TimeNow).TotalMilliseconds;
                 }
 
                 if(suitableSleepTime < 1)
@@ -187,7 +192,7 @@ namespace kvSql.ServiceDefaults.Raft
                     suitableSleepTime = 1;
                 }
                 Thread.Sleep(suitableSleepTime);
-                if(raft.lastResetHeartBeatTime.Millisecond - TimeNow.Millisecond > 0)
+                if((int)(raft.lastResetHeartBeatTime - TimeNow).TotalMilliseconds > 0)
                 {
                     continue;
                 }
@@ -199,18 +204,18 @@ namespace kvSql.ServiceDefaults.Raft
         {
             while(true)
             {
-                var TimeNow = DateTime.Now.Millisecond;
+                var TimeNow = DateTime.Now;
                 var SleepTime = 0;
                 lock(meMute)
                 {
-                    SleepTime = new Random().Next(100, selectTimeOut) + raft.lastResetSelectTime.Millisecond - TimeNow;
+                    SleepTime = new Random().Next(100, selectTimeOut) + (int)(raft.lastResetSelectTime - TimeNow).TotalMilliseconds;
                 }
                 if(SleepTime > 1)
                 {
                     Thread.Sleep(SleepTime);
                 }
 
-                if(raft.lastResetSelectTime.Millisecond - TimeNow > 0)
+                if((int)(raft.lastResetSelectTime - TimeNow).TotalMilliseconds > 0)
                 {
                     continue;
                 }
@@ -220,11 +225,33 @@ namespace kvSql.ServiceDefaults.Raft
 
         public void WriteLogTicker(RaftCS raft)
         {
-
+            while(true)
+            {
+                Thread.Sleep(500);
+                lock(raft.meMute)
+                {
+                    if(raft.raftLogs.Count == 0)
+                    {
+                        continue;
+                    }
+                    if(raft.raftLogs[^1].Index <= raft.commitIndex)
+                    {
+                        continue;
+                    }
+                    if(raft.raftLogs[^1].Index > raft.commitIndex)
+                    {
+                        raft.commitIndex++;
+                        raft.methods[raft.raftLogs[^1].Method](raft.raftLogs[^1].Parameters);
+                        raft.lastApplied = raft.commitIndex;
+                    }
+                }
+                //提交日志
+            }
         }
 
         public bool SendRaftRequestVote(RaftSendSelectMsg msg, Shared<IntWrapper> voteNum, RaftCS raft, int dstNodeID)
         {
+            Console.WriteLine($"SendRaftRequestVote {dstNodeID}");
             //调用RequestVote并等待回复
             var options = new JsonSerializerOptions
             {
@@ -232,6 +259,7 @@ namespace kvSql.ServiceDefaults.Raft
             };
             string json = JsonSerializer.Serialize(msg, options);
             (bool ok, string? replyJson)= allNodes[dstNodeID].RequestVote(json);
+            Console.WriteLine($"SendRaftRequestVote {dstNodeID} replyJson {replyJson}");
             if(!ok || replyJson == null || replyJson == "null")
             {
                 return false;
@@ -241,8 +269,11 @@ namespace kvSql.ServiceDefaults.Raft
                 TypeInfoResolver = RaftRpcSelectResponseJsonContent.Default
             };
             RaftResponseSelectMsg reply = JsonSerializer.Deserialize<RaftResponseSelectMsg>(replyJson, options);
-            
-            Persist();
+            if(reply == null)
+            {
+                return false;
+            }
+            //Persist();
             lock(meMute)
             {
                 if(reply.Term > raft.term)
@@ -262,10 +293,11 @@ namespace kvSql.ServiceDefaults.Raft
                 {
                     return true;
                 }
-
+                Console.WriteLine($"{raft.meID} get vote");
                 voteNum.Value.Value++;
                 if(voteNum.Value.Value >= ((raft.allNodes.Count / 2) + 1))
                 {
+                    Console.WriteLine($"{raft.meID} become leader");
                     voteNum.Value.Value = 0;
                     raft.meState = RaftState.Leader;
                     raft.leaderID = raft.meID;
@@ -284,6 +316,80 @@ namespace kvSql.ServiceDefaults.Raft
                 }
                 return true;
             }
+        }
+
+        public void SendRaftHeartBeat(RaftHeartBeatMsg msg, RaftCS raft, int nodeID)
+        {
+            Console.WriteLine($"SendRaftHeartBeat {nodeID}");
+            string json;
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = RaftRpcHeartBeatSendJsonContent.Default
+            };
+            json = JsonSerializer.Serialize(msg, options);
+            (bool ok, string? replyJson) = raft.allNodes[nodeID].HeartBeat(json);
+            if(!ok || replyJson == null || replyJson == "null")
+            {
+                return;
+            }
+            options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = RaftRpcHeartBeatLogSendJsonContent.Default
+            };
+            RaftResponseHeartBeatMsg reply = JsonSerializer.Deserialize<RaftResponseHeartBeatMsg>(replyJson, options);
+            if(reply == null)
+            {
+                return;
+            }
+            if(reply.HBSuccess)
+            {
+                return;
+            }
+            //
+        }
+
+        public void SendRaftHeartBeatLog(RaftHeartBeatLogMsg msg, RaftCS raft, int nodeID)
+        {
+            Console.WriteLine($"SendRaftHeartBeatLog {nodeID}");
+            string json;
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = RaftRpcHeartBeatLogSendJsonContent.Default
+            };
+            json = JsonSerializer.Serialize(msg, options);
+            (bool ok, string? replyJson) = allNodes[nodeID].HeartBeatLog(json);
+            if(!ok || replyJson == null || replyJson == "null")
+            {
+                return;
+            }
+            options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = RaftRpcHeartBeatLogSendJsonContent.Default
+            };
+            RaftResponseHeartBeatLogMsg reply = JsonSerializer.Deserialize<RaftResponseHeartBeatLogMsg>(replyJson, options);
+            if(reply == null)
+            {
+                return;
+            }
+
+            lock(raft.meMute)
+            {
+                if(reply.LogSuccess)
+                {
+                    raft.nextIndex[nodeID] = raft.nextIndex[nodeID] + 1;
+                    raft.matchIndex[nodeID] = raft.nextIndex[nodeID] + 1;
+                    return;
+                }
+                else
+                {
+                    if(reply.NodeLogLastIndex != -1)
+                    {
+                        raft.nextIndex[nodeID] = reply.NodeLogLastIndex + 1;
+                    }
+                    return;
+                }
+            }
+
         }
 
         public void DoSelect(RaftCS raft)
@@ -343,7 +449,190 @@ namespace kvSql.ServiceDefaults.Raft
         //重新设置心跳，去掉cpp部分代码，简易实现
         public void DoHeartBeat(RaftCS raft)
         {
+            lock(raft.meMute)
+            {
+                if(raft.meState == RaftState.Leader)
+                {
+                    Console.WriteLine("DoHeartBeat");
+                    raft.lastResetHeartBeatTime = DateTime.Now;
+                    int meLastLogIndex = GetLastLogIndex();
+                    foreach(var node in raft.allNodes)
+                    {
+                        if(node.Key == raft.meID)
+                        {
+                            continue;
+                        }
+                        int nodeID = node.Key;
+                        if(raft.nextIndex[nodeID] - 1 == meLastLogIndex)
+                        {
+                            //发送心跳
+                            RaftHeartBeatMsg msg = new()
+                            {
+                                Term = raft.term,
+                                LeaderID = raft.meID,
+                                NewIndex = meLastLogIndex
+                            };
+                            Thread t = new(() => 
+                            {
+                                try
+                                {
+                                    SendRaftHeartBeat(msg, raft, nodeID);
+                                }
+                                catch(Exception e)
+                                {
+                                    Console.WriteLine(e.Message);
+                                }
+                            })
+                            {
+                                IsBackground = true
+                            };
+                            t.Start();
+                        }
+                        else
+                        {
+                            //发送日志，暂时不处理快照的实现，默认全部都在内存中
+                            RaftHeartBeatLogMsg msg = new()
+                            {
+                                Term = raft.term,
+                                LeaderID = raft.meID,
+                                Log = raft.raftLogs
+                                    .FirstOrDefault(x => x.Index == raft.nextIndex[nodeID])
+                            };
 
+                            Thread t = new(() =>
+                            {
+                                try
+                                {
+                                    SendRaftHeartBeatLog(msg, raft, nodeID);
+                                }
+                                catch(Exception e)
+                                {
+                                    Console.WriteLine(e.Message);
+                                }
+                            })
+                            {
+                                IsBackground = true
+                            };
+                            t.Start();
+                        }
+                    }
+                }
+            }
+        }
+
+        public void RegisterRaftMethod(string methodName, Func<object[], Task<object>> method)
+        {
+            methods.Add(methodName, method);
+        }
+
+        public void MethonInit()
+        {
+            RegisterRaftMethod("CreateKVAsync", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                string val = (string)parameters[2];
+                return await kvSql.CreateKVAsync(s, key, val);
+            });
+
+            RegisterRaftMethod("AddTableNodeAsync", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                return await kvSql.AddTableNodeAsync(s);
+            });
+
+            RegisterRaftMethod("GetKValAsync", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                return await kvSql.GetKValAsync(s, key);
+            });
+
+            RegisterRaftMethod("ChangeValAsync", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                string newVal = (string)parameters[2];
+                return await kvSql.ChangeValAsync(s, key, newVal);
+            });
+
+            RegisterRaftMethod("SaveDataBaseAsync", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                await kvSql.SaveDataBaseAsync(s);
+                return true;
+            });
+
+            RegisterRaftMethod("CreateKVInt64Async", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                long val = (long)parameters[2];
+                return await kvSql.CreateKVInt64Async(s, key, val);
+            });
+
+            RegisterRaftMethod("AddTableNodeInt64Async", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                return await kvSql.AddTableNodeInt64Async(s);
+            });
+
+            RegisterRaftMethod("GetKValInt64Async", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                return await kvSql.GetKValInt64Async(s, key);
+            });
+
+            RegisterRaftMethod("ChangeValInt64Async", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                long newVal = (long)parameters[2];
+                return await kvSql.ChangeValInt64Async(s, key, newVal);
+            });
+
+            RegisterRaftMethod("SaveDataBaseInt64Async", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                await kvSql.SaveDataBaseInt64Async(s);
+                return true;
+            });
+
+            RegisterRaftMethod("AddTableNode", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                return await kvSql.AddTableNode<string, string>(s);
+            });
+
+            RegisterRaftMethod("DeleteTableNode", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                return await kvSql.DeleteTableNode(s);
+            });
+
+            RegisterRaftMethod("GetKValGeneric", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                return await kvSql.GetKValAsync<string, string>(s, key);
+            });
+
+            RegisterRaftMethod("CreateKVGeneric", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                string val = (string)parameters[2];
+                return await kvSql.CreateKVAsync<string, string>(s, key, val);
+            });
+
+            RegisterRaftMethod("ChangeValGeneric", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                string newVal = (string)parameters[2];
+                return await kvSql.ChangeValAsync<string, string>(s, key, newVal);
+            });
         }
 
         /*

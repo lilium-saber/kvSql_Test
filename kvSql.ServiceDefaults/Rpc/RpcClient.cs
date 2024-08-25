@@ -52,6 +52,7 @@ namespace kvSql.ServiceDefaults.Rpc
 
         public (bool, string?) RequestVote(string msg)
         {
+            Console.WriteLine($"RequestVote {_ipAddress}:{_port} {msg}");
             if(msg == null)
             {
                 return (false, null);
@@ -61,6 +62,45 @@ namespace kvSql.ServiceDefaults.Rpc
             try
             {
                 reply = CallAsync("RequestVote", msg).Result.ToString();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"RequestVote {_ipAddress}:{_port} {e} failed");
+                return (false, null);
+            }
+            return (true, reply);
+        }
+
+        public (bool, string?) HeartBeat(string msg)
+        {
+            if(msg == null)
+            {
+                return (false, null);
+            }
+            //如果通信失败，返回false
+            string? reply;
+            try
+            {
+                reply = CallAsync("HeartBeat", msg).Result.ToString();
+            }
+            catch (Exception)
+            {
+                return (false, null);
+            }
+            return (true, reply);
+        }
+
+        public (bool, string?) HeartBeatLog(string msg)
+        {
+            if(msg == null)
+            {
+                return (false, null);
+            }
+            //如果通信失败，返回false
+            string? reply;
+            try
+            {
+                reply = CallAsync("HeartBeatLog", msg).Result.ToString();
             }
             catch (Exception)
             {
