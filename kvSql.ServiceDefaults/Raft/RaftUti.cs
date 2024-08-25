@@ -55,20 +55,37 @@ namespace kvSql.ServiceDefaults.Raft
     public class RaftHeartBeatMsg
     {
         public int Term { get; set; }
+        public int LeaderID { get; set; }
+        public int NewIndex { get; set; }
     }
 
     public class RaftResponseHeartBeatMsg
     {
         public int Term { get; set; }
-        
+        public int NodeLogLastIndex { get; set; }
+        public bool HBSuccess { get; set; }
+    }
+
+    public class RaftHeartBeatLogMsg
+    {
+        public int Term { get; set; }
+        public int LeaderID { get; set; }
+        public RaftLog? Log { get; set; }
+    }
+
+    public class RaftResponseHeartBeatLogMsg
+    {
+        public int Term { get; set; }
+        public int NodeLogLastIndex { get; set; }
+        public bool LogSuccess { get; set; }
     }
 
     public class RaftLog
     {
-        public int Term { get; set; }
-        public int Index { get; set; }
-        public string Command { get; set; }
-        public string CommandSteam { get; set; }
+        public required int Term { get; set; }
+        public required int Index { get; set; }
+        public required string Method { get; set; }
+        public object[]? Parameters { get; set; }
     }
 
     public class RaftLogJson
@@ -91,6 +108,18 @@ namespace kvSql.ServiceDefaults.Raft
     [JsonSerializable(typeof(RaftLog))]
     [JsonSerializable(typeof(RaftLogJson))]
     public partial class RaftRpcLogJsonContent : JsonSerializerContext
+    {
+    }
+
+    [JsonSerializable(typeof(RaftHeartBeatMsg))]
+    [JsonSerializable(typeof(RaftResponseHeartBeatMsg))]
+    public partial class RaftRpcHeartBeatSendJsonContent : JsonSerializerContext
+    {
+    }
+
+    [JsonSerializable(typeof(RaftHeartBeatLogMsg))]
+    [JsonSerializable(typeof(RaftResponseHeartBeatLogMsg))]
+    public partial class RaftRpcHeartBeatLogSendJsonContent : JsonSerializerContext
     {
     }
 

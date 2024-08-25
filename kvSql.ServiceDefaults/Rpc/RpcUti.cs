@@ -9,21 +9,21 @@ namespace kvSql.ServiceDefaults.Rpc
 {
     public class RpcRequest
     {
-        public string Method { get; set; }
-        public object[] Parameters { get; set; }
+        public required string Method { get; set; }
+        public object[]? Parameters { get; set; }
     }
 
     public class RpcResponse
     {
-        public object Result { get; set; }
-        public string Error { get; set; }
+        public object? Result { get; set; }
+        public string? Error { get; set; }
     }
 
 
     public class RpcRaftRequest
     {
         public int Index { get; set; }
-        public string MethodName { get; set; }
+        public required string MethodName { get; set; }
         public object[] Data { get; set; }
         public int Term { get; set; }
     }

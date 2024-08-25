@@ -31,7 +31,7 @@ namespace kvSql.ServiceDefaults.Rpc
 
         public void RegisterMethod(string methodName, Func<object[], Task<object>> method)
         {
-            _methods[methodName] = method;
+            _methods.Add(methodName, method);
         }
 
         public async Task StartAsync()
@@ -51,17 +51,18 @@ namespace kvSql.ServiceDefaults.Rpc
             using (var networkStream = client.GetStream())
             {
                 var buffer = new byte[1024];
-                var bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length);
+                var bytesRead = await networkStream.ReadAsync(buffer);
                 var requestJson = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                 var rpcRequest = JsonConvert.DeserializeObject<RpcRequest>(requestJson);
 
                 var rpcResponse = new RpcResponse();
-                if (_methods.TryGetValue(rpcRequest.Method, out var method))
+                if (_methods.TryGetValue(rpcRequest!.Method, out var method))
                 {
                     try
                     {
                         var result = await method(rpcRequest.Parameters);
                         rpcResponse.Result = result;
+                        rpcResponse.Error = null;
                     }
                     catch (Exception ex)
                     {
@@ -75,12 +76,13 @@ namespace kvSql.ServiceDefaults.Rpc
 
                 var responseJson = JsonConvert.SerializeObject(rpcResponse);
                 var responseBytes = Encoding.UTF8.GetBytes(responseJson);
-                await networkStream.WriteAsync(responseBytes, 0, responseBytes.Length);
+                await networkStream.WriteAsync(responseBytes);
             }
         }
 
         private string RequestVote(string msg)
         {
+            Console.WriteLine($"{_raft.meID} RequestVote {msg}");
             RaftSendSelectMsg? getMsg = JsonConvert.DeserializeObject<RaftSendSelectMsg>(msg);
             if (getMsg == null)
             {
@@ -138,6 +140,150 @@ namespace kvSql.ServiceDefaults.Rpc
                 TypeInfoResolver = RaftRpcSelectResponseJsonContent.Default
             };
             json = System.Text.Json.JsonSerializer.Serialize(response, options);
+            Console.WriteLine($"{_raft.meID} RequestVote {json}");
+            return json;
+        }
+
+        private string HeartBeat(string msg)
+        {
+            RaftHeartBeatMsg? getMsg = JsonConvert.DeserializeObject<RaftHeartBeatMsg>(msg);
+            if (getMsg == null)
+            {
+                return "null";
+            }
+            RaftResponseHeartBeatMsg response = new();
+
+            lock(_raft.meMute)
+            {
+                if(getMsg.Term < _raft.term)
+                {
+                    response.Term = _raft.term;
+                    response.NodeLogLastIndex = _raft.GetLastLogIndex();
+                    response.HBSuccess = false;
+                    goto End;
+                }
+                
+                if(getMsg.Term > _raft.term)
+                {
+                    _raft.term = getMsg.Term;
+                    _raft.leaderID = getMsg.LeaderID;
+                    _raft.votedFor = -1;
+                    _raft.meState = RaftState.Follower;
+                    _raft.lastResetSelectTime = DateTime.Now;
+                    response.Term = _raft.term;
+                    response.NodeLogLastIndex = _raft.GetLastLogIndex();
+                    response.HBSuccess = true;
+                    goto End;
+                }
+
+                if(getMsg.Term == _raft.term)
+                {
+                    _raft.lastResetSelectTime = DateTime.Now;
+                    _raft.leaderID = getMsg.LeaderID;
+                    _raft.meState = RaftState.Follower;
+                    response.Term = _raft.term;
+                    response.NodeLogLastIndex = _raft.GetLastLogIndex();
+                    response.HBSuccess = true;
+                    goto End;
+                }
+
+                //
+            }
+        End:
+            string? json;
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = RaftRpcHeartBeatSendJsonContent.Default
+            };
+            json = System.Text.Json.JsonSerializer.Serialize(response, options);
+            return json;
+        }
+
+        private string HeartBeatLog(string msg)
+        {
+            RaftHeartBeatLogMsg? getMsg = JsonConvert.DeserializeObject<RaftHeartBeatLogMsg>(msg);
+            if (getMsg == null)
+            {
+                return "null";
+            }
+            RaftResponseHeartBeatLogMsg response = new();
+
+            lock(_raft.meMute)
+            {
+                if(getMsg.Term < _raft.term)
+                {
+                    response.Term = _raft.term;
+                    response.NodeLogLastIndex = _raft.GetLastLogIndex();
+                    response.LogSuccess = false;
+                    goto End;
+                }
+
+                if(getMsg.Term > _raft.term)
+                {
+                    _raft.lastResetHeartBeatTime = DateTime.Now;
+                    _raft.term = getMsg.Term;
+                    _raft.leaderID = getMsg.LeaderID;
+                    _raft.meState = RaftState.Follower;
+                    response.Term = _raft.term;
+                    int lastLogIndex = _raft.GetLastLogIndex();
+                    if(getMsg.Log == null)
+                    {
+                        response.NodeLogLastIndex = -1;
+                        response.LogSuccess = false;
+                        goto End;
+                    }
+                    if(getMsg.Log.Index <= lastLogIndex)
+                    {
+                        response.NodeLogLastIndex = lastLogIndex;
+                        response.LogSuccess = false;
+                        goto End;
+                    }
+                    if(getMsg.Log.Index > lastLogIndex)
+                    {
+                        response.NodeLogLastIndex = lastLogIndex;
+                        _raft.raftLogs.Add(getMsg.Log);
+                        response.LogSuccess = true;
+                        //
+                        goto End;
+                    }
+                }
+
+                if(getMsg.Term == _raft.term)
+                {
+                    _raft.lastResetSelectTime = DateTime.Now;
+                    _raft.leaderID = getMsg.LeaderID;
+                    _raft.meState = RaftState.Follower;
+                    response.Term = _raft.term;
+                    int lastLogIndex = _raft.GetLastLogIndex();
+                    if(getMsg.Log == null)
+                    {
+                        response.NodeLogLastIndex = -1;
+                        response.LogSuccess = false;
+                        goto End;
+                    }
+                    if(getMsg.Log.Index <= lastLogIndex)
+                    {
+                        response.NodeLogLastIndex = lastLogIndex;
+                        response.LogSuccess = false;
+                        goto End;
+                    }
+                    if(getMsg.Log.Index > lastLogIndex)
+                    {
+                        response.NodeLogLastIndex = lastLogIndex;
+                        _raft.raftLogs.Add(getMsg.Log);
+                        response.LogSuccess = true;
+                        //
+                        goto End;
+                    }
+                }
+            }
+        End:
+            string? json;
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = RaftRpcHeartBeatLogSendJsonContent.Default
+            };
+            json = System.Text.Json.JsonSerializer.Serialize(response, options);
             return json;
         }
 
@@ -147,6 +293,18 @@ namespace kvSql.ServiceDefaults.Rpc
             {
                 string msg = (string)parameters[0];
                 return RequestVote(msg);
+            });
+
+            RegisterMethod("HeartBeat", async (parameters) =>
+            {
+                string msg = (string)parameters[0];
+                return HeartBeat(msg);
+            });
+
+            RegisterMethod("HeartBeatLog", async (parameters) =>
+            {
+                string msg = (string)parameters[0];
+                return HeartBeatLog(msg);
             });
 
             RegisterMethod("Add", async (parameters) =>
