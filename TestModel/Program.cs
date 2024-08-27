@@ -5,34 +5,63 @@ using kvSql.ServiceDefaults.JumpKV;
 using kvSql.ServiceDefaults.Rpc;
 using System.Diagnostics;
 
-Mutex mutex = new(true);
-int turn = 0; // 用于跟踪当前应该由哪个线程打印
 
-void P0(int start, int need, int all)
+async Task StartServer()
 {
-    for (int i = start; i < 10 + start; i++)
+    string relativePath = Path.Combine($"RaftSetting.json");
+    string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
+    string filePath = Path.Combine(solutionPath, relativePath);
+    var config = ConfigLoader.LoadConfig(filePath);
+    var server = new RpcServer(config.LocalServer.IpAddress, config.LocalServer.Port);
+
+    await server.StartAsync();
+}
+
+async Task StartClient()
+{
+    string relativePath = Path.Combine($"RaftSetting.json");
+    string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
+    string filePath = Path.Combine(solutionPath, relativePath);
+    var config = ConfigLoader.LoadConfig(filePath);
+    //var client = new RpcClient(config.LocalClient.IpAddress, config.LocalClient.Port);
+    var connectNodes = config.ConnectNodes;
+    foreach(var connectNode in connectNodes)
     {
-        lock (mutex)
+        var client = new RpcClient(connectNode.Node.IpAddress, connectNode.Node.Port);
+        var result = await client.CallAsync("AddTableNodeInt64Async", "test");
+        Console.WriteLine($"Result: {result}");
+        for(int i = 0; i < 1e3; i++)
         {
-            while (turn % all != need)
-            {
-                Monitor.Wait(mutex);
-            }
-            Console.WriteLine($"P0: {i}");
-            turn++;
-            Monitor.PulseAll(mutex); // 唤醒所有等待的线程
+            Random random = new();
+            int k = random.Next(0, (int)1e4);
+            var result1 = await client.CallAsync("CreateKVInt64Async", "test", k.ToString(), k);
+            Console.WriteLine($"Result set: {result1}");
+        }
+        Thread.Sleep(30000);
+        for(int i = 0; i < 1e4; i++)
+        {
+            Random random = new();
+            int k = random.Next(0, (int)1e4);
+            var result1 = await client.CallAsync("GetKValInt64Async", "test", k.ToString());
+            Console.WriteLine($"Result get: {result1} {k}");
         }
     }
 }
 
-Thread t1 = new(() => P0(0, 0, 2));
-Thread t2 = new(() => P0(50, 1, 2));
-t1.Start();
-t2.Start();
+async Task MainAsync()
+{
+    var serverTask = StartServer();
 
-t1.Join();
-t2.Join();
+    // 等待服务端启动
+    await Task.Delay(2000);
+    Console.WriteLine("delay end");
+    await StartClient();
 
+    // 等待服务端任务完成（通常不会发生，因为服务器会一直运行）
+    await serverTask;
+}
+
+await MainAsync();
 /*
 async Task StartServer()
 {

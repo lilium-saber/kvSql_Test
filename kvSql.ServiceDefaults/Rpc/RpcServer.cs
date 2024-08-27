@@ -80,6 +80,14 @@ namespace kvSql.ServiceDefaults.Rpc
             }
         }
 
+        private void AddLog(RaftLog log)
+        {
+            lock (_raft.meMute)
+            {
+                _raft.raftLogs.Add(log);
+            }
+        }
+
         private string RequestVote(string msg)
         {
             Console.WriteLine($"{_raft.meID} RequestVote {msg}");
@@ -316,6 +324,188 @@ namespace kvSql.ServiceDefaults.Rpc
 
             RegisterMethod("CreateKVAsync", async (parameters) =>
             {
+                RaftLog log = new()
+                {
+                    Term = _raft.term,
+                    Index = _raft.GetLastLogIndex() + 1,
+                    Method = "CreateKVAsync",
+                    Parameters = parameters
+                };
+                AddLog(log);
+                return null;
+            });
+
+            RegisterMethod("AddTableNodeAsync", async (parameters) =>
+            {
+                // string s = (string)parameters[0];
+                // return await _kvDataBase.AddTableNodeAsync(s);
+                RaftLog log = new()
+                {
+                    Term = _raft.term,
+                    Index = _raft.GetLastLogIndex() + 1,
+                    Method = "AddTableNodeAsync",
+                    Parameters = parameters
+                };
+                AddLog(log);
+                return null;
+            });
+
+            RegisterMethod("GetKValAsync", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                return await _raft.kvSql.GetKValAsync(s, key);
+            });
+
+            RegisterMethod("ChangeValAsync", async (parameters) =>
+            {
+                // string s = (string)parameters[0];
+                // string key = (string)parameters[1];
+                // string newVal = (string)parameters[2];
+                // return await _kvDataBase.ChangeValAsync(s, key, newVal);
+                RaftLog log = new()
+                {
+                    Term = _raft.term,
+                    Index = _raft.GetLastLogIndex() + 1,
+                    Method = "ChangeValAsync",
+                    Parameters = parameters
+                };
+                AddLog(log);
+                return null;
+            });
+
+            RegisterMethod("SaveDataBaseAsync", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                await _raft.kvSql.SaveDataBaseAsync(s);
+                return true;
+            });
+
+            RegisterMethod("CreateKVInt64Async", async (parameters) =>
+            {
+                // string s = (string)parameters[0];
+                // string key = (string)parameters[1];
+                // long val = (long)parameters[2];
+                // return await _kvDataBase.CreateKVInt64Async(s, key, val);
+                RaftLog log = new()
+                {
+                    Term = _raft.term,
+                    Index = _raft.GetLastLogIndex() + 1,
+                    Method = "CreateKVInt64Async",
+                    Parameters = parameters
+                };
+                AddLog(log);
+                return null;
+            });
+
+            RegisterMethod("AddTableNodeInt64Async", async (parameters) =>
+            {
+                // string s = (string)parameters[0];
+                // return await _kvDataBase.AddTableNodeInt64Async(s);
+                RaftLog log = new()
+                {
+                    Term = _raft.term,
+                    Index = _raft.GetLastLogIndex() + 1,
+                    Method = "AddTableNodeInt64Async",
+                    Parameters = parameters
+                };
+                AddLog(log);
+                return null;
+            });
+
+            RegisterMethod("GetKValInt64Async", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                return await _raft.kvSql.GetKValInt64Async(s, key);
+            });
+
+            RegisterMethod("ChangeValInt64Async", async (parameters) =>
+            {
+                // string s = (string)parameters[0];
+                // string key = (string)parameters[1];
+                // long newVal = (long)parameters[2];
+                // return await _kvDataBase.ChangeValInt64Async(s, key, newVal);
+                RaftLog log = new()
+                {
+                    Term = _raft.term,
+                    Index = _raft.GetLastLogIndex() + 1,
+                    Method = "ChangeValInt64Async",
+                    Parameters = parameters
+                };
+                AddLog(log);
+                return null;
+            });
+
+            RegisterMethod("SaveDataBaseInt64Async", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                await _raft.kvSql.SaveDataBaseInt64Async(s);
+                return true;
+            });
+
+            RegisterMethod("AddTableNode", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                return await _kvDataBase.AddTableNode<string, string>(s);
+            });
+
+            RegisterMethod("DeleteTableNode", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                return await _kvDataBase.DeleteTableNode(s);
+            });
+
+            RegisterMethod("GetKValGeneric", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                return await _kvDataBase.GetKValAsync<string, string>(s, key);
+            });
+
+            RegisterMethod("CreateKVGeneric", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                string val = (string)parameters[2];
+                return await _kvDataBase.CreateKVAsync<string, string>(s, key, val);
+            });
+
+            RegisterMethod("ChangeValGeneric", async (parameters) =>
+            {
+                string s = (string)parameters[0];
+                string key = (string)parameters[1];
+                string newVal = (string)parameters[2];
+                return await _kvDataBase.ChangeValAsync<string, string>(s, key, newVal);
+            });
+            /*
+            RegisterMethod("RequestVote", async (parameters) =>
+            {
+                string msg = (string)parameters[0];
+                return RequestVote(msg);
+            });
+
+            RegisterMethod("HeartBeat", async (parameters) =>
+            {
+                string msg = (string)parameters[0];
+                return HeartBeat(msg);
+            });
+
+            RegisterMethod("HeartBeatLog", async (parameters) =>
+            {
+                string msg = (string)parameters[0];
+                return HeartBeatLog(msg);
+            });
+
+            RegisterMethod("Add", async (parameters) =>
+            {
+                int a = (int)parameters[0];
+                int b = (int)parameters[1];
+                return a + b;
+            });
+
+            RegisterMethod("CreateKVAsync", async (parameters) =>
+            {
                 string s = (string)parameters[0];
                 string key = (string)parameters[1];
                 string val = (string)parameters[2];
@@ -420,6 +610,7 @@ namespace kvSql.ServiceDefaults.Rpc
                 string newVal = (string)parameters[2];
                 return await _kvDataBase.ChangeValAsync<string, string>(s, key, newVal);
             });
+            */
         }
     }
 }
