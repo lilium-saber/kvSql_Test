@@ -26,8 +26,8 @@ namespace kvSql.ServiceDefaults.Raft
         private Dictionary<int, int> matchIndex { get; set; }  //已知的已经复制到的最高日志索引
 
         //all node
-        private int commitIndex { get; set; }  //已知的已经提交的最高日志索引
-        private int lastApplied { get; set; }  //已知的已经应用的最高日志索引
+        private double commitIndex { get; set; }  //已知的已经提交的最高日志索引
+        private double lastApplied { get; set; }  //已知的已经应用的最高日志索引
         public int term { get; set; }  //当前任期
 
         //rpc使用
@@ -44,7 +44,7 @@ namespace kvSql.ServiceDefaults.Raft
         private int lastIncludedTerm { get; set; }  //快照中包含的最后一个日志条目的任期
         
         //kvSql
-        private readonly IKVDataBase kvSql;
+        public readonly IKVDataBase kvSql;
         private readonly Dictionary<string, Func<object[], Task<object>>> methods;
 
         public RaftCS()
@@ -227,25 +227,39 @@ namespace kvSql.ServiceDefaults.Raft
         {
             while(true)
             {
-                Thread.Sleep(500);
+                Thread.Sleep(10);
+                raft.commitIndex = raft.GetLastLogIndex();
                 lock(raft.meMute)
                 {
+                    //Console.WriteLine($"WriteLogTicker {raft.lastApplied}");
                     if(raft.raftLogs.Count == 0)
                     {
                         continue;
                     }
-                    if(raft.raftLogs[^1].Index <= raft.commitIndex)
+                    if(raft.lastApplied >= raft.commitIndex)
                     {
+                        commitIndex = raft.GetLastLogIndex();
                         continue;
                     }
-                    if(raft.raftLogs[^1].Index > raft.commitIndex)
+                    if(raft.lastApplied < raft.commitIndex)
                     {
-                        raft.commitIndex++;
-                        raft.methods[raft.raftLogs[^1].Method](raft.raftLogs[^1].Parameters);
-                        raft.lastApplied = raft.commitIndex;
+                        // while(raft.lastApplied < raft.raftLogs[(int)raft.lastApplied].Index)
+                        // {
+                        //     raft.lastApplied++;
+                        // }
+                        // if(raft.raftLogs[(int)raft.lastApplied].Index != raft.lastApplied)
+                        // {
+                        //     raft.lastApplied++;
+                        //     continue;
+                        // }
+                        raft.methods[raft.raftLogs[(int)raft.lastApplied].Method](raft.raftLogs[(int)raft.lastApplied].Parameters);
+                        raft.lastApplied++;
                     }
                 }
                 //提交日志
+                //待处理：持久化。读取命令不应该持久化，只有写入命令才应该持久化
+                //处理读取命令绕过日志
+
             }
         }
 
@@ -410,6 +424,13 @@ namespace kvSql.ServiceDefaults.Raft
                 //持久化
 
                 raft.lastResetSelectTime = DateTime.Now;
+                if(raft.allNodes.Count == 1)
+                {
+                    raft.meState = RaftState.Leader;
+                    raft.leaderID = raft.meID;
+                    raft.leaderTerm = raft.term;
+                    return;
+                }
                 //Rpc
                 foreach(var node in allNodes)
                 {
@@ -568,12 +589,14 @@ namespace kvSql.ServiceDefaults.Raft
                 string s = (string)parameters[0];
                 string key = (string)parameters[1];
                 long val = (long)parameters[2];
+                Console.WriteLine($"CreateKVInt64Async {s} {key} {val}");
                 return await kvSql.CreateKVInt64Async(s, key, val);
             });
 
             RegisterRaftMethod("AddTableNodeInt64Async", async (parameters) =>
             {
                 string s = (string)parameters[0];
+                Console.WriteLine($"AddTableNodeInt64Async {s}");
                 return await kvSql.AddTableNodeInt64Async(s);
             });
 
