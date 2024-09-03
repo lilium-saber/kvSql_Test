@@ -42,6 +42,7 @@ namespace kvSql.ServiceDefaults.JumpKV
         private readonly int LeverMax = 15;
         private readonly JumpNode<TKey, TVal> head; //一定是层数满的节点，本身无数据
         private readonly Random random;
+        private readonly ReaderWriterLockSlim rwLock;
 
         public readonly string keyType;
         public readonly string valueType;
@@ -55,6 +56,7 @@ namespace kvSql.ServiceDefaults.JumpKV
             keyType = typeof(TKey).Name;
             valueType = typeof(TVal).Name;
             jumpName = null;
+            rwLock = new();
         }
 
         public JumpList(string s)
@@ -65,6 +67,7 @@ namespace kvSql.ServiceDefaults.JumpKV
             keyType = typeof(TKey).Name;
             valueType = typeof(TVal).Name;
             jumpName = s;
+            rwLock = new();
         }
 
         private int RandomLever()
@@ -109,83 +112,108 @@ namespace kvSql.ServiceDefaults.JumpKV
 
         public bool AddVal(TKey key, TVal val)
         {
-            JumpNode<TKey, TVal>[] update = new JumpNode<TKey, TVal>[LeverMax + 1];
-            JumpNode<TKey, TVal> p = head;
-            for (int i = LeverMax; i >= 0; i--)
+            rwLock.EnterWriteLock();
+            try
             {
-                while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                JumpNode<TKey, TVal>[] update = new JumpNode<TKey, TVal>[LeverMax + 1];
+                JumpNode<TKey, TVal> p = head;
+                for (int i = LeverMax; i >= 0; i--)
                 {
-                    p = p.Next[i];
+                    while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                    {
+                        p = p.Next[i];
+                    }
+                    update[i] = p;
                 }
-                update[i] = p;
+                if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
+                {
+                    return false;
+                }
+                else
+                {
+                    int lever = RandomLever();
+                    if (lever > LeverMax)
+                    {
+                        lever = LeverMax;
+                    }
+                    JumpNode<TKey, TVal> newNode = new JumpNode<TKey, TVal>(lever, key, val);
+                    for (int i = 0; i <= lever; i++)
+                    {
+                        newNode.Next[i] = update[i].Next[i];
+                        update[i].Next[i] = newNode;
+                    }
+                    return true;
+                }
             }
-            if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
+            finally
             {
-                return false;
+                rwLock.ExitWriteLock();
             }
-            else
-            {
-                int lever = RandomLever();
-                if (lever > LeverMax)
-                {
-                    lever = LeverMax;
-                }
-                JumpNode<TKey, TVal> newNode = new JumpNode<TKey, TVal>(lever, key, val);
-                for (int i = 0; i <= lever; i++)
-                {
-                    newNode.Next[i] = update[i].Next[i];
-                    update[i].Next[i] = newNode;
-                }
-                return true;
-            }
+            
         }
 
         public TVal? GetVal(TKey key)
         {
-            JumpNode<TKey, TVal> p = head;
-            for (int i = LeverMax; i >= 0; i--)
+            rwLock.EnterReadLock();
+            try
             {
-                while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                JumpNode<TKey, TVal> p = head;
+                for (int i = LeverMax; i >= 0; i--)
                 {
-                    p = p.Next[i];
+                    while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                    {
+                        p = p.Next[i];
+                    }
+                }
+                if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
+                {
+                    return p.Next[0].Val.Values;
+                }
+                else
+                {
+                    return default(TVal);
                 }
             }
-            if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
+            finally
             {
-                return p.Next[0].Val.Values;
-            }
-            else
-            {
-                return default(TVal);
+                rwLock.ExitReadLock();
             }
         }
 
         public bool DeteleKey(TKey key)
         {
-            JumpNode<TKey, TVal>[] update = new JumpNode<TKey, TVal>[LeverMax + 1];
-            JumpNode<TKey, TVal> p = head;
-            for (int i = LeverMax; i >= 0; i--)
+            rwLock.EnterWriteLock();
+            try
             {
-                while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                JumpNode<TKey, TVal>[] update = new JumpNode<TKey, TVal>[LeverMax + 1];
+                JumpNode<TKey, TVal> p = head;
+                for (int i = LeverMax; i >= 0; i--)
                 {
-                    p = p.Next[i];
+                    while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                    {
+                        p = p.Next[i];
+                    }
+                    update[i] = p;
                 }
-                update[i] = p;
-            }
-            if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
-            {
-                JumpNode<TKey, TVal> deleteNode = p.Next[0];
-                for (int i = 0; i <= deleteNode.Lever; i++)
+                if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
                 {
-                    update[i].Next[i] = deleteNode.Next[i];
+                    JumpNode<TKey, TVal> deleteNode = p.Next[0];
+                    for (int i = 0; i <= deleteNode.Lever; i++)
+                    {
+                        update[i].Next[i] = deleteNode.Next[i];
+                    }
+                    deleteNode.Val = null;
+                    deleteNode = null;
+                    return true;
                 }
-                deleteNode.Val = null;
-                deleteNode = null;
-                return true;
+                else
+                {
+                    return false;
+                }
             }
-            else
+            finally
             {
-                return false;
+                rwLock.ExitWriteLock();
             }
         }
 
@@ -211,87 +239,8 @@ namespace kvSql.ServiceDefaults.JumpKV
 
         public bool ChangeVal(TKey key, TVal val)
         {
-            JumpNode<TKey, TVal> p = head;
-            for (int i = LeverMax; i >= 0; i--)
-            {
-                while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
-                {
-                    p = p.Next[i];
-                }
-            }
-            if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
-            {
-                p.Next[0].Val.Values = val;
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public async Task SaveJumpAsync()
-        {
-            string json;
-            string relativePath = Path.Combine("DataFile", $"{jumpName}.json");
-            string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
-            if (solutionPath == null)
-            {
-                throw new InvalidOperationException("Solution path could not be determined.");
-            }
-            string filePath = Path.Combine(solutionPath, relativePath);
-            if(!Directory.Exists(Path.GetDirectoryName(filePath)))
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            }
-            var jsonListData = new JsonListData<TKey, TVal>
-            {
-                keyType = keyType,
-                valueType = valueType,
-                jumpName = jumpName,
-                jsonNodeDatas = []
-            };
-            JumpNode<TKey, TVal> jumpNode = head;
-            while (jumpNode.Next[0] != null)
-            {
-                jumpNode = jumpNode.Next[0];
-                var jsonNodeData = new JsonNodeData<TKey, TVal>
-                {
-                    lever = jumpNode.Lever,
-                    key = jumpNode.Val.Keys,
-                    val = jumpNode.Val.Values,
-                    NextKeys = []
-                };
-                for (int i = 0; i <= jumpNode.Lever; i++)
-                {
-                    if (jumpNode.Next[i] != null && jumpNode.Next[i].Val != null)
-                    {
-                        jsonNodeData.NextKeys.Add(jumpNode.Next[i].Val.Keys);
-                    }
-                }
-                jsonListData.jsonNodeDatas.Add(jsonNodeData);
-            }
-
-            var options = new JsonSerializerOptions
-            {
-                TypeInfoResolver = (valueType == "Int64") ? JsonListDataContextInt64.Default : JsonListDataContext.Default
-            };
-            json = JsonSerializer.Serialize(jsonListData, options);
-
+            rwLock.EnterWriteLock();
             try
-            {
-                await File.WriteAllTextAsync(filePath, json);
-                Console.WriteLine($"save as json, name is {jumpName}\n");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to save as json, {jumpName}\nmeg: {ex.Message}\n");
-            }
-        }
-
-        public async Task<string> KValMathPlusAsync(TKey key, TVal number)
-        {
-            if (valueType == "Int32" || valueType == "Int64" || valueType == "Single" || valueType == "Double" || valueType == "Decimal" || valueType == "long" || valueType == "int")
             {
                 JumpNode<TKey, TVal> p = head;
                 for (int i = LeverMax; i >= 0; i--)
@@ -301,28 +250,131 @@ namespace kvSql.ServiceDefaults.JumpKV
                         p = p.Next[i];
                     }
                 }
-                if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0 && p.Next[0].Val != null)
+                if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0)
                 {
-                    try
+                    p.Next[0].Val.Values = val;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            finally
+            {
+                rwLock.ExitWriteLock();
+            }
+        }
+
+        public async Task SaveJumpAsync()
+        {
+            rwLock.EnterWriteLock();
+            try
+            {
+                string json;
+                string relativePath = Path.Combine("DataFile", $"{jumpName}.json");
+                string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
+                if (solutionPath == null)
+                {
+                    throw new InvalidOperationException("Solution path could not be determined.");
+                }
+                string filePath = Path.Combine(solutionPath, relativePath);
+                if(!Directory.Exists(Path.GetDirectoryName(filePath)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+                }
+                var jsonListData = new JsonListData<TKey, TVal>
+                {
+                    keyType = keyType,
+                    valueType = valueType,
+                    jumpName = jumpName,
+                    jsonNodeDatas = []
+                };
+                JumpNode<TKey, TVal> jumpNode = head;
+                while (jumpNode.Next[0] != null)
+                {
+                    jumpNode = jumpNode.Next[0];
+                    var jsonNodeData = new JsonNodeData<TKey, TVal>
                     {
-                        dynamic currentValue = p.Next[0].Val.Values;
-                        dynamic addValue = number;
-                        p.Next[0].Val.Values = currentValue + addValue;
-                        return await Task.FromResult("KV Math success\n");
+                        lever = jumpNode.Lever,
+                        key = jumpNode.Val.Keys,
+                        val = jumpNode.Val.Values,
+                        NextKeys = []
+                    };
+                    for (int i = 0; i <= jumpNode.Lever; i++)
+                    {
+                        if (jumpNode.Next[i] != null && jumpNode.Next[i].Val != null)
+                        {
+                            jsonNodeData.NextKeys.Add(jumpNode.Next[i].Val.Keys);
+                        }
                     }
-                    catch (Exception ex)
+                    jsonListData.jsonNodeDatas.Add(jsonNodeData);
+                }
+
+                var options = new JsonSerializerOptions
+                {
+                    TypeInfoResolver = (valueType == "Int64") ? JsonListDataContextInt64.Default : JsonListDataContext.Default
+                };
+                json = JsonSerializer.Serialize(jsonListData, options);
+
+                try
+                {
+                    await File.WriteAllTextAsync(filePath, json);
+                    Console.WriteLine($"save as json, name is {jumpName}\n");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to save as json, {jumpName}\nmeg: {ex.Message}\n");
+                }
+            }
+            finally
+            {
+                rwLock.ExitWriteLock();
+            }
+        }
+
+        public async Task<string> KValMathPlusAsync(TKey key, TVal number)
+        {
+            rwLock.EnterWriteLock();
+            try
+            {
+                if (valueType == "Int32" || valueType == "Int64" || valueType == "Single" || valueType == "Double" || valueType == "Decimal" || valueType == "long" || valueType == "int")
+                {
+                    JumpNode<TKey, TVal> p = head;
+                    for (int i = LeverMax; i >= 0; i--)
                     {
-                        return await Task.FromResult($"KV Math error: {ex.Message}\n");
+                        while (p.Next[i] != null && p.Next[i].Val.Keys.CompareTo(key) < 0)
+                        {
+                            p = p.Next[i];
+                        }
+                    }
+                    if (p.Next[0] != null && p.Next[0].Val.Keys.CompareTo(key) == 0 && p.Next[0].Val != null)
+                    {
+                        try
+                        {
+                            dynamic currentValue = p.Next[0].Val.Values;
+                            dynamic addValue = number;
+                            p.Next[0].Val.Values = currentValue + addValue;
+                            return await Task.FromResult("KV Math success\n");
+                        }
+                        catch (Exception ex)
+                        {
+                            return await Task.FromResult($"KV Math error: {ex.Message}\n");
+                        }
+                    }
+                    else
+                    {
+                        return await Task.FromResult("Key not found\n");
                     }
                 }
                 else
                 {
-                    return await Task.FromResult("Key not found\n");
+                    return await Task.FromResult("KV Math error: Unsupported value type\n");
                 }
             }
-            else
+            finally
             {
-                return await Task.FromResult("KV Math error: Unsupported value type\n");
+                rwLock.ExitWriteLock();
             }
         }
 
