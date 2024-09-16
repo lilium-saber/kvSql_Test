@@ -14,6 +14,9 @@ namespace kvSql.ServiceDefaults.Raft
 {
     public class RaftCS
     {
+        private static RaftCS? instance; //单例
+        private readonly static object lockObj = new();  //单例锁
+
         public List<RaftLog> raftLogs { get; set; }   //日志，添加快照会清空
         public RaftState meState { get; set;}  //节点状态
         public readonly object meMute = new();   //互斥锁
@@ -47,7 +50,7 @@ namespace kvSql.ServiceDefaults.Raft
         public readonly IKVDataBase kvSql;
         private readonly Dictionary<string, Func<object[], Task<object>>> methods;
 
-        public RaftCS()
+        private RaftCS()
         {
             lock(meMute)
             {
@@ -101,7 +104,7 @@ namespace kvSql.ServiceDefaults.Raft
                 lastResetSelectTime = DateTime.Now;
                 //
                 methods = [];
-                kvSql = new AllTable();
+                kvSql = AllTable.GetInstance(); 
                 MethonInit();
             }
             
@@ -120,6 +123,16 @@ namespace kvSql.ServiceDefaults.Raft
             t1.Start();
             t2.Start();
             t3.Start();
+        }
+
+        //单例
+        public static RaftCS GetInstance() 
+        {
+            lock (lockObj)
+            {
+                instance ??= new RaftCS();
+                return instance;
+            }
         }
 
         //持久化
