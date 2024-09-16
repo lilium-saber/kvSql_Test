@@ -42,7 +42,7 @@ namespace kvSql.ServiceDefaults.JumpKV
 
     public class AllTable : IKVDataBase
     {
-        private Dictionary<string, IJumpNode> tableNodes;
+        private readonly Dictionary<string, IJumpNode> tableNodes;
         private static AllTable? instance;
         private static readonly object lockObj = new();
 
@@ -53,11 +53,14 @@ namespace kvSql.ServiceDefaults.JumpKV
 
         public static AllTable GetInstance()
         {
-            lock (lockObj)
+            if (instance == null)
             {
-                instance ??= new AllTable();
-                return instance;
+                lock (lockObj)
+                {
+                    instance ??= new AllTable();
+                }
             }
+            return instance;
         }
 
         public async Task<bool> AddTableNode<Tkey, Tvalue>(string s) where Tkey : IComparable<Tkey>

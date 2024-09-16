@@ -12,7 +12,7 @@ async Task StartServer()
     string solutionPath = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
     string filePath = Path.Combine(solutionPath, relativePath);
     var config = ConfigLoader.LoadConfig(filePath);
-    var server = RpcServer.GetInstance(config.LocalServer.IpAddress, config.LocalServer.Port);
+    var server = new RpcServer(config.LocalServer.IpAddress, config.LocalServer.Port);
 
     await server.StartAsync();
 }

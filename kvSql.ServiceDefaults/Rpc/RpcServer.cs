@@ -20,10 +20,10 @@ namespace kvSql.ServiceDefaults.Rpc
         private readonly IKVDataBase _kvDataBase;
         private readonly RaftCS _raft;
 
-        private static RpcServer? rpcServer;
-        private static readonly object lockObj = new();
+        // private static RpcServer? rpcServer;
+        // private static readonly object lockObj = new();
 
-        private RpcServer(string ipAddress, int port)
+        public RpcServer(string ipAddress, int port)
         {
             _listener = new TcpListener(System.Net.IPAddress.Parse(ipAddress), port);
             _methods = [];
@@ -32,14 +32,17 @@ namespace kvSql.ServiceDefaults.Rpc
             RpcServerInit();
         }
 
-        public static RpcServer GetInstance(string ipAddress, int port)
-        {
-            lock (lockObj)
-            {
-                rpcServer ??= new RpcServer(ipAddress, port);
-                return rpcServer;
-            }
-        }
+        // public static RpcServer GetInstance(string ipAddress, int port)
+        // {
+        //     if (rpcServer == null)
+        //     {
+        //         lock (lockObj)
+        //         {
+        //             rpcServer ??= new RpcServer(ipAddress, port);
+        //         }
+        //     }
+        //     return rpcServer;
+        // }
 
         public void RegisterMethod(string methodName, Func<object[], Task<object>> method)
         {
