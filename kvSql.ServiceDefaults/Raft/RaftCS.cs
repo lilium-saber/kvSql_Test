@@ -128,11 +128,14 @@ namespace kvSql.ServiceDefaults.Raft
         //单例
         public static RaftCS GetInstance() 
         {
-            lock (lockObj)
+            if(instance == null)
             {
-                instance ??= new RaftCS();
-                return instance;
+                lock(lockObj)
+                {
+                    instance ??= new RaftCS();
+                }
             }
+            return instance;
         }
 
         //持久化
