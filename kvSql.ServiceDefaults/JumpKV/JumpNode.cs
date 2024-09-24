@@ -11,30 +11,17 @@ using System.Threading.Tasks;
 
 namespace kvSql.ServiceDefaults.JumpKV
 {
-    internal class ValNode<TKey, TVal> where TKey : IComparable<TKey>
+    internal class ValNode<TKey, TVal>(TKey keys, TVal values) where TKey : IComparable<TKey>
     {
-        public TKey Keys { get; set; }
-        public TVal? Values { get; set; }
-
-        public ValNode(TKey keys, TVal values)
-        {
-            Keys = keys;
-            Values = values;
-        }
+        public TKey Keys { get; set; } = keys;
+        public TVal? Values { get; set; } = values;
     }
 
-    internal class JumpNode<TKey, TVal> where TKey : IComparable<TKey> 
+    internal class JumpNode<TKey, TVal>(int lever, TKey key, TVal val) where TKey : IComparable<TKey> 
     {
-        public int Lever { get; set; }
-        public ValNode<TKey, TVal> Val { get; set; }
-        public JumpNode<TKey, TVal>[] Next { get; set; } //当前节点的各个层级的下一个节点，数组下标是层级，数组代表节点的层级高度
-
-        public JumpNode(int lever, TKey key, TVal val)
-        {
-            Lever = lever;
-            Val = new ValNode<TKey, TVal>(key, val);
-            Next = new JumpNode<TKey, TVal>[lever + 1];
-        }
+        public int Lever { get; set; } = lever;
+        public ValNode<TKey, TVal> Val { get; set; } = new ValNode<TKey, TVal>(key, val);
+        public JumpNode<TKey, TVal>[] Next { get; set; } = new JumpNode<TKey, TVal>[lever + 1];
     }
 
     public class JumpList<TKey, TVal> : IJumpNode<TKey, TVal> where TKey : IComparable<TKey>

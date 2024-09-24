@@ -7,47 +7,37 @@ using kvSql.ServiceDefaults.Raft;
 
 namespace kvSql.ServiceDefaults.Rpc
 {
-    public class RpcClient : IRpcClient
+    public class RpcClient(string ipAddress, int port) : IRpcClient
     {
-        private readonly string _ipAddress;
-        private readonly int _port;
-
-        public RpcClient(string ipAddress, int port)
-        {
-            _ipAddress = ipAddress;
-            _port = port;
-        }
+        private readonly string _ipAddress = ipAddress;
+        private readonly int _port = port;
 
         public async Task<object> CallAsync(string method, params object[] parameters)
         {
-            using (var client = new TcpClient())
+            using var client = new TcpClient();
+            await client.ConnectAsync(_ipAddress, _port);
+            using var networkStream = client.GetStream();
+            var rpcRequest = new RpcRequest
             {
-                await client.ConnectAsync(_ipAddress, _port);
-                using (var networkStream = client.GetStream())
-                {
-                    var rpcRequest = new RpcRequest
-                    {
-                        Method = method,
-                        Parameters = parameters
-                    };
+                Method = method,
+                Parameters = parameters
+            };
 
-                    var requestJson = JsonConvert.SerializeObject(rpcRequest);
-                    var requestBytes = Encoding.UTF8.GetBytes(requestJson);
-                    await networkStream.WriteAsync(requestBytes, 0, requestBytes.Length);
+            var requestJson = JsonConvert.SerializeObject(rpcRequest);
+            var requestBytes = Encoding.UTF8.GetBytes(requestJson);
+            await networkStream.WriteAsync(requestBytes, 0, requestBytes.Length);
 
-                    var buffer = new byte[1024];
-                    var bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length);
-                    var responseJson = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    var rpcResponse = JsonConvert.DeserializeObject<RpcResponse>(responseJson);
+            var buffer = new byte[1024];
+            var bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length);
+            var responseJson = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+            var rpcResponse = JsonConvert.DeserializeObject<RpcResponse>(responseJson);
 
-                    if (rpcResponse.Error != null)
-                    {
-                        throw new Exception(rpcResponse.Error);
-                    }
-
-                    return rpcResponse.Result;
-                }
+            if (rpcResponse.Error != null)
+            {
+                throw new Exception(rpcResponse.Error);
             }
+
+            return rpcResponse.Result;
         }
 
         public (bool, string?) RequestVote(string msg)
