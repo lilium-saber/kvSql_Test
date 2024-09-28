@@ -11,35 +11,58 @@ namespace kvSql.ServiceDefaults.Rpc
     {
         private readonly string _ipAddress = ipAddress;
         private readonly int _port = port;
+        private readonly int _maxRetry = 3;
+        private readonly int _timeoutMilliseconds = 10000;
 
-        public async Task<object> CallAsync(string method, params object[] parameters)
+        public async Task<object> CallAsync(string method, params object[]? parameters)
         {
-            using var client = new TcpClient();
-            await client.ConnectAsync(_ipAddress, _port);
-            using var networkStream = client.GetStream();
-            var rpcRequest = new RpcRequest
+            for (int attempt = 0; attempt < _maxRetry; attempt++)
             {
-                Method = method,
-                Parameters = parameters
-            };
+                using var client = new TcpClient();
+                using var cts = new CancellationTokenSource(_timeoutMilliseconds); //超时计时器
+                try
+                {
+                    await client.ConnectAsync(_ipAddress, _port);
+                    using var networkStream = client.GetStream();
+                    var rpcRequest = new RpcRequest
+                    {
+                        Method = method,
+                        Parameters = parameters
+                    };
 
-            var requestJson = JsonConvert.SerializeObject(rpcRequest);
-            var requestBytes = Encoding.UTF8.GetBytes(requestJson);
-            await networkStream.WriteAsync(requestBytes, 0, requestBytes.Length);
+                    var requestJson = JsonConvert.SerializeObject(rpcRequest);
+                    var requestBytes = Encoding.UTF8.GetBytes(requestJson);
+                    await networkStream.WriteAsync(requestBytes, cts.Token);
 
-            var buffer = new byte[1024];
-            var bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length);
-            var responseJson = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            var rpcResponse = JsonConvert.DeserializeObject<RpcResponse>(responseJson);
+                    var buffer = new byte[1024];
+                    var bytesRead = await networkStream.ReadAsync(buffer, cts.Token);
+                    var responseJson = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    var rpcResponse = JsonConvert.DeserializeObject<RpcResponse>(responseJson);
 
-            if (rpcResponse.Error != null)
-            {
-                throw new Exception(rpcResponse.Error);
+                    if (rpcResponse.Error != null)
+                    {
+                        throw new Exception(rpcResponse.Error);
+                    }
+
+                    return rpcResponse.Result;
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine($"Attempt {attempt + 1} timed out.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Attempt {attempt + 1} failed: {ex.Message}");
+                }
+
+                if (attempt < _maxRetry - 1)
+                {
+                    await Task.Delay(1000); // 等待一段时间后重试
+                }
             }
 
-            return rpcResponse.Result;
+            throw new Exception("All retry attempts failed.");
         }
-
         public (bool, string?) RequestVote(string msg)
         {
             Console.WriteLine($"RequestVote {_ipAddress}:{_port} {msg}");
@@ -51,7 +74,7 @@ namespace kvSql.ServiceDefaults.Rpc
             string? reply;
             try
             {
-                reply = CallAsync("RequestVote", msg).Result.ToString();
+                reply = CallAsync("RequestVote", msg).Result?.ToString();
             }
             catch (Exception e)
             {
@@ -71,7 +94,7 @@ namespace kvSql.ServiceDefaults.Rpc
             string? reply;
             try
             {
-                reply = CallAsync("HeartBeat", msg).Result.ToString();
+                reply = CallAsync("HeartBeat", msg).Result?.ToString();
             }
             catch (Exception)
             {
@@ -90,7 +113,7 @@ namespace kvSql.ServiceDefaults.Rpc
             string? reply;
             try
             {
-                reply = CallAsync("HeartBeatLog", msg).Result.ToString();
+                reply = CallAsync("HeartBeatLog", msg).Result?.ToString();
             }
             catch (Exception)
             {
