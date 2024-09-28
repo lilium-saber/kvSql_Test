@@ -19,6 +19,8 @@ namespace kvSql.ServiceDefaults.Rpc
         private readonly Dictionary<string, Func<object[], Task<object>>> _methods;
         private readonly IKVDataBase _kvDataBase;
         private readonly RaftCS _raft;
+        // private readonly int _maxRetry = 3;
+        // private readonly int _timeoutMilliseconds = 10000;
 
         // private static RpcServer? rpcServer;
         // private static readonly object lockObj = new();
