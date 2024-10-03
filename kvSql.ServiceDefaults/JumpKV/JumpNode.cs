@@ -11,21 +11,45 @@ using System.Threading.Tasks;
 
 namespace kvSql.ServiceDefaults.JumpKV
 {
-    internal class ValNode<TKey, TVal>(TKey keys, TVal values) where TKey : IComparable<TKey>
-    {
-        public TKey Keys { get; set; } = keys;
-        public TVal? Values { get; set; } = values;
-    }
-
-    internal class JumpNode<TKey, TVal>(int lever, TKey key, TVal val) where TKey : IComparable<TKey> 
-    {
-        public int Lever { get; set; } = lever;
-        public ValNode<TKey, TVal> Val { get; set; } = new ValNode<TKey, TVal>(key, val);
-        public JumpNode<TKey, TVal>[] Next { get; set; } = new JumpNode<TKey, TVal>[lever + 1];
-    }
-
     public class JumpList<TKey, TVal> : IJumpNode<TKey, TVal> where TKey : IComparable<TKey>
     {
+        // private class JumpNode<TKey, TVal>(int lever, TKey key, TVal val) where TKey : IComparable<TKey> 
+        // {
+        //     internal int Lever { get; set; } = lever;
+        //     internal ValNode<TKey, TVal> Val { get; set; } = new ValNode<TKey, TVal>(key, val);
+        //     internal JumpNode<TKey, TVal>[] Next { get; set; } = new JumpNode<TKey, TVal>[lever + 1];
+        // }
+        // private class ValNode<TKey, TVal>(TKey keys, TVal values) where TKey : IComparable<TKey>
+        // {
+        //     internal TKey Keys { get; set; } = keys;
+        //     internal TVal? Values { get; set; } = values;
+        // }
+        private class JumpNode<TKey, TVal> where TKey : IComparable<TKey>
+        {
+            internal int Lever { get; set; }
+            internal ValNode<TKey, TVal> Val { get; set; }
+            internal JumpNode<TKey, TVal>[] Next { get; set; }
+
+            internal JumpNode(int lever, TKey key, TVal val)
+            {
+                Lever = lever;
+                Val = new ValNode<TKey, TVal>(key, val);
+                Next = new JumpNode<TKey, TVal>[lever + 1];
+            }
+        }
+
+        private class ValNode<TKey, TVal> where TKey : IComparable<TKey>
+        {
+            internal TKey Keys { get; set; }
+            internal TVal? Values { get; set; }
+
+            internal ValNode(TKey keys, TVal values)
+            {
+                Keys = keys;
+                Values = values;
+            }
+        }
+
         private readonly int LeverMax = 15;
         private readonly JumpNode<TKey, TVal> head; //一定是层数满的节点，本身无数据
         private readonly Random random;

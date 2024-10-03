@@ -34,7 +34,7 @@ namespace kvSql.ServiceDefaults.Raft
         public int term { get; set; }  //当前任期
 
         //rpc使用
-        private readonly Dictionary<int, RpcClient> allNodes;
+        private readonly Dictionary<int, IRpcClient> allNodes;
         public int leaderTerm { get; set; }    //已知领导者最新任期,开始为0
         public int votedFor { get; set; }  //已投票给谁
         public int leaderID { get; set; }  //领导者ID

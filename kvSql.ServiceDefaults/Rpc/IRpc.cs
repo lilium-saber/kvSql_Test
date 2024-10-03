@@ -8,11 +8,15 @@ namespace kvSql.ServiceDefaults.Rpc
 {
     public interface IRpcServer
     {
-        public void RegisterMethod(string methodName, Func<object[], Task<object>> method);
+        void RegisterMethod(string methodName, Func<object[], Task<object>> method);
+        Task StartAsync();
     }
 
     public interface IRpcClient
     {
-        public Task<object> CallAsync(string method, params object[] parameters);
+        Task<object> CallAsync(string method, params object[] parameters);
+        (bool, string?) RequestVote(string msg);
+        (bool, string?) HeartBeat(string msg);
+        (bool, string?) HeartBeatLog(string msg);
     }
 }
