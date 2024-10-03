@@ -44,14 +44,9 @@ namespace kvSql.ServiceDefaults.Rpc
     {
     }
 
-    public class Defer : IDisposable
+    public class Defer(Action action) : IDisposable
     {
-        private readonly Action _action;
-
-        public Defer(Action action)
-        {
-            _action = action;
-        }
+        private readonly Action _action = action;
 
         public void Dispose()
         {
