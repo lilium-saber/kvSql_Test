@@ -41,7 +41,7 @@ namespace kvSql.ServiceDefaults.JumpKV
         private class ValNode<TKey, TVal> where TKey : IComparable<TKey>
         {
             internal TKey Keys { get; set; }
-            internal TVal? Values { get; set; }
+            internal TVal Values { get; set; }
 
             internal ValNode(TKey keys, TVal values)
             {
@@ -213,12 +213,11 @@ namespace kvSql.ServiceDefaults.JumpKV
                     {
                         update[i].Next[i] = deleteNode.Next[i];
                     }
-                    deleteNode.Val = null;
-                    deleteNode = null;
                     return true;
                 }
                 else
                 {
+                    Console.WriteLine("JumpList Delete: Key not found\n");
                     return false;
                 }
             }
@@ -363,8 +362,8 @@ namespace kvSql.ServiceDefaults.JumpKV
                     {
                         try
                         {
-                            dynamic currentValue = p.Next[0].Val.Values;
-                            dynamic addValue = number;
+                            dynamic currentValue = p.Next[0].Val.Values!;
+                            dynamic addValue = number!;
                             p.Next[0].Val.Values = currentValue + addValue;
                             return await Task.FromResult("KV Math success\n");
                         }

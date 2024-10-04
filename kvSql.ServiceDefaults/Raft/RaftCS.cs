@@ -298,7 +298,7 @@ namespace kvSql.ServiceDefaults.Raft
             {
                 TypeInfoResolver = RaftRpcSelectResponseJsonContent.Default
             };
-            RaftResponseSelectMsg reply = JsonSerializer.Deserialize<RaftResponseSelectMsg>(replyJson, options);
+            RaftResponseSelectMsg reply = JsonSerializer.Deserialize<RaftResponseSelectMsg>(replyJson!, options);
             if(reply == null)
             {
                 return false;
@@ -324,7 +324,7 @@ namespace kvSql.ServiceDefaults.Raft
                     return true;
                 }
                 Console.WriteLine($"{raft.meID} get vote");
-                voteNum.Value.Value++;
+                voteNum.Value!.Value++;
                 if(voteNum.Value.Value >= ((raft.allNodes.Count / 2) + 1))
                 {
                     Console.WriteLine($"{raft.meID} become leader");
@@ -366,7 +366,7 @@ namespace kvSql.ServiceDefaults.Raft
             {
                 TypeInfoResolver = RaftRpcHeartBeatLogSendJsonContent.Default
             };
-            RaftResponseHeartBeatMsg reply = JsonSerializer.Deserialize<RaftResponseHeartBeatMsg>(replyJson, options);
+            RaftResponseHeartBeatMsg reply = JsonSerializer.Deserialize<RaftResponseHeartBeatMsg>(replyJson!, options);
             if(reply == null)
             {
                 return;
@@ -396,7 +396,7 @@ namespace kvSql.ServiceDefaults.Raft
             {
                 TypeInfoResolver = RaftRpcHeartBeatLogSendJsonContent.Default
             };
-            RaftResponseHeartBeatLogMsg reply = JsonSerializer.Deserialize<RaftResponseHeartBeatLogMsg>(replyJson, options);
+            RaftResponseHeartBeatLogMsg reply = JsonSerializer.Deserialize<RaftResponseHeartBeatLogMsg>(replyJson!, options);
             if(reply == null)
             {
                 return;
