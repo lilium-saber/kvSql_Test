@@ -9,8 +9,6 @@ namespace kvSql.ServiceDefaults.Rpc
 {
     public class RpcClient(string ipAddress, int port) : IRpcClient
     {
-        private readonly string _ipAddress = ipAddress;
-        private readonly int _port = port;
         private readonly int _maxRetry = 3;
         private readonly int _timeoutMilliseconds = 10000;
 
@@ -22,7 +20,7 @@ namespace kvSql.ServiceDefaults.Rpc
                 using var cts = new CancellationTokenSource(_timeoutMilliseconds); //超时计时器
                 try
                 {
-                    await client.ConnectAsync(_ipAddress, _port);
+                    await client.ConnectAsync(ipAddress, port);
                     using var networkStream = client.GetStream();
                     var rpcRequest = new RpcRequest
                     {
@@ -65,7 +63,7 @@ namespace kvSql.ServiceDefaults.Rpc
         }
         public (bool, string?) RequestVote(string msg)
         {
-            Console.WriteLine($"RequestVote {_ipAddress}:{_port} {msg}");
+            Console.WriteLine($"RequestVote {ipAddress}:{port} {msg}");
             if(msg == null)
             {
                 return (false, null);
@@ -78,7 +76,7 @@ namespace kvSql.ServiceDefaults.Rpc
             }
             catch (Exception e)
             {
-                Console.WriteLine($"RequestVote {_ipAddress}:{_port} {e} failed");
+                Console.WriteLine($"RequestVote {ipAddress}:{port} {e} failed");
                 return (false, null);
             }
             return (true, reply);
