@@ -312,6 +312,23 @@ namespace kvSql.ServiceDefaults.Rpc
             return json;
         }
 
+        private (bool, int?) IsMainNode()
+        {
+            lock(_raft.meMute)
+            {
+                if(_raft.meState == RaftState.Leader)
+                {
+                    // 写入自己的数据库，读取自己的数据库
+                    return (true, null);
+                }
+                else
+                {
+                    // 转发给leader，使用raftcs的信息
+                    return (false, _raft.leaderID);
+                }
+            }
+        }
+
         private void RpcServerInit()
         {
             RegisterMethod("RequestVote", async (parameters) =>
@@ -341,6 +358,18 @@ namespace kvSql.ServiceDefaults.Rpc
 
             RegisterMethod("CreateKVAsync", async (parameters) =>
             {
+                if(!IsMainNode().Item1)
+                {
+                    int leaderID = IsMainNode().Item2 ?? -1;
+                    if(leaderID == -1)
+                    {
+                        Console.WriteLine("CreateKVAsync LeaderID is -1");
+                        return null;
+                    }
+                    await _raft.SendMethodAsync(leaderID, "CreateKVAsync", parameters);
+                    return null;
+                }
+
                 RaftLog log = new()
                 {
                     Term = _raft.term,
@@ -356,6 +385,17 @@ namespace kvSql.ServiceDefaults.Rpc
             {
                 // string s = (string)parameters[0];
                 // return await _kvDataBase.AddTableNodeAsync(s);
+                if(!IsMainNode().Item1)
+                {
+                    int leaderID = IsMainNode().Item2 ?? -1;
+                    if(leaderID == -1)
+                    {
+                        Console.WriteLine("AddTableNodeAsync LeaderID is -1");
+                        return null;
+                    }
+                    await _raft.SendMethodAsync(leaderID, "AddTableNodeAsync", parameters);
+                    return null;
+                }
                 RaftLog log = new()
                 {
                     Term = _raft.term,
@@ -369,6 +409,16 @@ namespace kvSql.ServiceDefaults.Rpc
 
             RegisterMethod("GetKValAsync", async (parameters) =>
             {
+                if(!IsMainNode().Item1)
+                {
+                    int leaderID = IsMainNode().Item2 ?? -1;
+                    if(leaderID == -1)
+                    {
+                        Console.WriteLine("GetKValAsync LeaderID is -1");
+                        return default(string);
+                    }
+                    return await _raft.SendGetMethodAsync(leaderID, "GetKValAsync", parameters);
+                }
                 string s = (string)parameters[0];
                 string key = (string)parameters[1];
                 return await _raft.kvSql.GetKValAsync(s, key);
@@ -380,6 +430,17 @@ namespace kvSql.ServiceDefaults.Rpc
                 // string key = (string)parameters[1];
                 // string newVal = (string)parameters[2];
                 // return await _kvDataBase.ChangeValAsync(s, key, newVal);
+                if(!IsMainNode().Item1)
+                {
+                    int leaderID = IsMainNode().Item2 ?? -1;
+                    if(leaderID == -1)
+                    {
+                        Console.WriteLine("ChangeValAsync LeaderID is -1");
+                        return null;
+                    }
+                    await _raft.SendMethodAsync(leaderID, "ChangeValAsync", parameters);
+                    return null;
+                }
                 RaftLog log = new()
                 {
                     Term = _raft.term,
@@ -404,6 +465,17 @@ namespace kvSql.ServiceDefaults.Rpc
                 // string key = (string)parameters[1];
                 // long val = (long)parameters[2];
                 // return await _kvDataBase.CreateKVInt64Async(s, key, val);
+                if(!IsMainNode().Item1)
+                {
+                    int leaderID = IsMainNode().Item2 ?? -1;
+                    if(leaderID == -1)
+                    {
+                        Console.WriteLine("CreateKVInt64Async LeaderID is -1");
+                        return null;
+                    }
+                    await _raft.SendMethodAsync(leaderID, "CreateKVInt64Async", parameters);
+                    return null;
+                }
                 RaftLog log = new()
                 {
                     Term = _raft.term,
@@ -419,6 +491,17 @@ namespace kvSql.ServiceDefaults.Rpc
             {
                 // string s = (string)parameters[0];
                 // return await _kvDataBase.AddTableNodeInt64Async(s);
+                if(!IsMainNode().Item1)
+                {
+                    int leaderID = IsMainNode().Item2 ?? -1;
+                    if(leaderID == -1)
+                    {
+                        Console.WriteLine("AddTableNodeInt64Async LeaderID is -1");
+                        return null;
+                    }
+                    await _raft.SendMethodAsync(leaderID, "AddTableNodeInt64Async", parameters);
+                    return null;
+                }
                 RaftLog log = new()
                 {
                     Term = _raft.term,
@@ -432,6 +515,16 @@ namespace kvSql.ServiceDefaults.Rpc
 
             RegisterMethod("GetKValInt64Async", async (parameters) =>
             {
+                if(!IsMainNode().Item1)
+                {
+                    int leaderID = IsMainNode().Item2 ?? -1;
+                    if(leaderID == -1)
+                    {
+                        Console.WriteLine("GetKValInt64Async LeaderID is -1");
+                        return default(long);
+                    }
+                    return await _raft.SendGetMethodAsync(leaderID, "GetKValInt64Async", parameters);
+                }
                 string s = (string)parameters[0];
                 string key = (string)parameters[1];
                 return await _raft.kvSql.GetKValInt64Async(s, key);
@@ -443,6 +536,17 @@ namespace kvSql.ServiceDefaults.Rpc
                 // string key = (string)parameters[1];
                 // long newVal = (long)parameters[2];
                 // return await _kvDataBase.ChangeValInt64Async(s, key, newVal);
+                if(!IsMainNode().Item1)
+                {
+                    int leaderID = IsMainNode().Item2 ?? -1;
+                    if(leaderID == -1)
+                    {
+                        Console.WriteLine("ChangeValInt64Async LeaderID is -1");
+                        return null;
+                    }
+                    await _raft.SendMethodAsync(leaderID, "ChangeValInt64Async", parameters);
+                    return null;
+                }
                 RaftLog log = new()
                 {
                     Term = _raft.term,
