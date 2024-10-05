@@ -557,6 +557,16 @@ namespace kvSql.ServiceDefaults.Raft
             }
         }
 
+        public async Task SendMethodAsync(int nodeID, string methodNamem, params object[]? parameters)
+        {
+            await allNodes[nodeID].CallAsync(methodNamem, parameters);
+        }
+
+        public async Task<object> SendGetMethodAsync(int nodeID, string methodNamem, params object[]? parameters)
+        {
+            return await allNodes[nodeID].CallAsync(methodNamem, parameters);
+        }
+
         public void RegisterRaftMethod(string methodName, Func<object[], Task<object>> method)
         {
             methods.Add(methodName, method);
